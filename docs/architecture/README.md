@@ -24,14 +24,27 @@ Read in order; each builds on the last.
 | 11 | [Entity model](phase-1a/11-entity-model.md) | Schema sketches for ~102 MVP tables |
 | 12 | [ERD](phase-1a/12-erd.md) | Relationship fragments and the cardinalities people get wrong |
 | 13 | [Open questions](phase-1a/13-open-questions.md) | Assumptions, what breaks if wrong, contradictions found in the brief |
-| — | [ADR log](adr/README.md) | 16 decisions, each with a revisit trigger |
+| — | [ADR log](adr/README.md) | 24 decisions, each with a revisit trigger |
 
-## Phase 1B — Domain and application (not started)
+## Phase 1B — Domain and application (complete, awaiting review)
 
-Module-by-module design, assessment and calendar engine detail, finance and
-payment abstraction, notifications, API surface, frontend and component
-strategy, Puck CMS, i18n, theming, PDF and Bangla typography, data import,
-reporting data path, mobile/offline, accessibility.
+| # | Document | Answers |
+|---|---|---|
+| 14 | [Module architecture](phase-1b/14-module-architecture.md) | Use cases, invariants and events for every module in §5 |
+| 15 | [Assessment engine](phase-1b/15-assessment-engine.md) | The rule vocabulary, evaluation pipeline, exam lifecycle, bulk mark entry |
+| 16 | [Calendar engine](phase-1b/16-calendar-engine.md) | Resolution algorithm, provisional holidays, retroactive recompute, conflict rules |
+| 17 | [Finance architecture](phase-1b/17-finance-architecture.md) | Gapless receipts, allocation, arrears, reconciliation, payment abstraction |
+| 18 | [Notification architecture](phase-1b/18-notification-architecture.md) | Bangla SMS economics, deduplication, budgets, rate shaping |
+| 19 | [API architecture](phase-1b/19-api-architecture.md) | REST conventions, envelope, errors, idempotency, pagination |
+| 20 | [Frontend architecture](phase-1b/20-frontend-architecture.md) | Route groups, RSC boundaries, the three screens that decide the product |
+| 21 | [Puck CMS architecture](phase-1b/21-cms-architecture.md) | Content model, block library, the public projection boundary |
+| 22 | [Internationalization](phase-1b/22-i18n-architecture.md) | The three-way text split, NFC, numerals, fonts, localisation QA |
+| 23 | [Theme and branding](phase-1b/23-theme-branding.md) | Token layers, four render targets, the contrast guard |
+| 24 | [Documents, PDF, Bangla](phase-1b/24-documents-pdf-bangla.md) | Shaping, templates, font pinning, golden-image tests, batch rendering |
+| 25 | [Data import and migration](phase-1b/25-data-import.md) | Stage/validate/commit, duplicate detection, opening dues, export |
+| 26 | [Reporting data path](phase-1b/26-reporting-data-path.md) | The staged path with trigger metrics, report definitions, caching |
+| 27 | [Mobile and offline](phase-1b/27-mobile-offline.md) | PWA rationale, the outbox, conflict rules, the device clock problem |
+| 28 | [Accessibility](phase-1b/28-accessibility.md) | WCAG 2.2 AA, keyboard grids, two scripts, CI verification |
 
 ## Phase 1C — Platform and operations (not started)
 
