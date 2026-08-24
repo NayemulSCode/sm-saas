@@ -6,15 +6,17 @@ secondary schools, Bangla- and English-medium, single-campus and multi-campus.
 Bilingual at launch: **English** (`en`) and **বাংলা** (`bn`, `bn-BD`).
 Currency **BDT**. Platform timezone **Asia/Dhaka**.
 
-> **Status: Phase 1A + 1B complete, 1C outstanding.** There is no application
-> code in this repository yet, by design. Phase 1 produces the architecture;
-> Phase 2 the engineering specification; Phase 3 the implementation. See
-> [`docs/architecture/`](docs/architecture/README.md).
+> **Status: Phase 1 complete — 1A, 1B and 1C.** There is no application code in
+> this repository yet, by design. Phase 1 produces the architecture; Phase 2 the
+> engineering specification; Phase 3 the implementation.
+> Start at the **[decision summary](docs/architecture/phase-1c/46-decision-summary.md)**,
+> or the [full index](docs/architecture/README.md).
 
 ## Start here
 
 | Document | What it answers |
 |---|---|
+| [Decision summary](docs/architecture/phase-1c/46-decision-summary.md) | Every settled decision, fixed number and deferred item — the Phase 2 handoff |
 | [Executive summary](docs/architecture/phase-1a/01-executive-summary.md) | The recommendation, the disagreements with the brief, the MVP cut |
 | [Constraints](docs/architecture/CONSTRAINTS.md) | The values every trade-off is argued against |
 | [ADR log](docs/architecture/adr/README.md) | Every significant decision, with its revisit trigger |
