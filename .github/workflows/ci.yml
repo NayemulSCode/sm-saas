@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Phase 1 is architecture only. As code lands, add typecheck / test / build
+# jobs here and make them required checks on main — see CONTRIBUTING.md.
+jobs:
+  docs:
+    name: Documentation integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check links, ADR index and secret leakage
+        run: ./scripts/check-docs.sh

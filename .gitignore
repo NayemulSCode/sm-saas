@@ -1,0 +1,54 @@
+# Dependencies and build output
+node_modules
+.next
+dist
+build
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment. .env.example IS committed; anything with real values is not.
+.env
+.env.*
+!.env.example
+
+# Secrets that must never enter history. If one of these is ever committed,
+# rotating the credential is mandatory — removing the file is not sufficient,
+# because the object stays reachable in every existing clone.
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+credentials.json
+
+# Tenant data. Student photos, guardian documents, birth certificates and
+# generated report cards are personal data about children. They live in object
+# storage, never in the repository and never in a local folder Git can see.
+/var
+/uploads
+/storage
+
+# Database dumps — these contain live tenant PII by definition.
+*.sql.gz
+*.dump
+*.backup
+
+# Test and tooling output
+/coverage
+/test-results
+/playwright-report
+/blob-report
+/.playwright
+
+# Claude Code: share the dev-server launch config, keep personal settings and
+# agent worktrees (which are full nested checkouts) out.
+.claude/*
+!.claude/launch.json
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+desktop.ini

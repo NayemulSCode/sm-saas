@@ -1,0 +1,24 @@
+# Normalize to LF in the repository regardless of the checkout platform.
+# Development happens on Windows; production runs on Linux. Without this a
+# CRLF checkout leaks into shell scripts and Docker entrypoints and they fail
+# with "bad interpreter: /bin/sh^M" on the server.
+* text=auto eol=lf
+
+*.sh          text eol=lf
+*.bat         text eol=crlf
+*.ps1         text eol=crlf
+
+# Generated or vendored — keep them out of diffs and language statistics.
+pnpm-lock.yaml   linguist-generated=true -diff
+*.min.js         linguist-generated=true -diff
+
+# Binary assets: never merge, never diff as text.
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
