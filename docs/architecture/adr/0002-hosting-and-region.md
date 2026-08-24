@@ -45,6 +45,25 @@ Singapore is far smaller than the productivity it buys.
 **No Kubernetes.** A cluster is a full-time role, and there is nobody to fill it.
 Docker Compose plus a systemd unit is debuggable at 02:00 by one person.
 
+### Minimum host size: 8 GB
+
+Set by measurement, not by guess. [Spike OQ-13](../spikes/oq-13-pdf-memory/README.md)
+put the PDF renderer's peak at 958 MB, which fixes the budget:
+
+| Component | Budget |
+|---|---|
+| PostgreSQL | 2.5–3.0 GB |
+| Next.js app | 0.7 GB |
+| Worker (non-PDF) | 0.3 GB |
+| PDF renderer, hard-capped | 1.2 GB |
+| OS + page cache | 1.5 GB |
+| **Total** | **~6.2–6.7 GB of 8 GB** |
+
+On a 4 GB box the PDF renderer must move to its own machine or be restricted to
+off-peak batches. Every container gets an explicit memory limit — Chromium in
+particular sizes its caches to available memory and will otherwise expand until
+it starves PostgreSQL.
+
 ## Consequences
 
 **Makes easy:** a predictable flat monthly bill; full control of PostgreSQL

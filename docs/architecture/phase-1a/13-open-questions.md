@@ -93,7 +93,7 @@ the modules are already separable — but the MVP list must shrink by roughly ha
 |---|---|---|---|
 | OQ-11 | Actual RTT Dhaka → Hetzner Singapore vs DO Singapore vs Hetzner EU | Measure. Rent an hour of each and run a real request pattern from a Dhaka connection | [ADR-0002](../adr/0002-hosting-and-region.md) region choice |
 | ~~OQ-12~~ | ~~Does headless Chromium render Bangla conjuncts correctly with the pinned Noto build?~~ | **CLOSED 2026-08-24** — spike run, all five feature classes pass. See [`spikes/oq-12-bangla-shaping/`](../spikes/oq-12-bangla-shaping/README.md) | [ADR-0009](../adr/0009-pdf-rendering.md) **confirmed**, no engine change |
-| OQ-13 | Chromium memory ceiling under a 500-document batch on the target VPS | Load test in the spike above | Whether the PDF worker needs its own host sooner |
+| ~~OQ-13~~ | ~~Chromium memory ceiling under a 500-document batch~~ | **CLOSED 2026-08-24** — 500 docs in 4.1 min, peak 958 MB, no leak. See [`spikes/oq-13-pdf-memory/`](../spikes/oq-13-pdf-memory/README.md) | Renderer **stays on the shared host**; needs a container memory limit, page recycling, and an 8 GB minimum VPS |
 | OQ-14 | Real p95 for the tabulation query on a 400-student, 12-subject, 5-component exam | Synthetic data + `EXPLAIN ANALYZE` during Phase 2 | Whether results need precomputation beyond `result_snapshot` |
 | OQ-15 | RLS planner behaviour: does `= ANY(app.current_tenant_ids())` use the index at scale? | `EXPLAIN` against a seeded 10 M-row `attendance` table | [ADR-0003](../adr/0003-tenancy-model.md) — falls back to a single-value GUC if not |
 | OQ-16 | pg-boss throughput for a 20,000-message SMS fan-out on the target hardware | Load test | [ADR-0010](../adr/0010-job-queue.md) — BullMQ moves up if it fails |
@@ -107,8 +107,17 @@ typographic rule — Bangla ascends ~23% higher than Latin, so `line-height: 1.0
 clips — and three font-shipping sub-decisions. Full report:
 [`spikes/oq-12-bangla-shaping/`](../spikes/oq-12-bangla-shaping/README.md).
 
-**OQ-13 is now the one to do first**, and it is a capacity question rather than a
-correctness one — which is a materially better position than Phase 1A started in.
+**OQ-13 is also closed.** Measured on 2026-08-24: 500 report cards render in 4.1
+minutes against a 10-minute target, with no memory leak and a 958 MB peak. Page
+recycling every 25 renders cuts peak memory 40% at no throughput cost. The
+renderer stays on the shared host, subject to a hard container memory limit — and
+the spike sets **8 GB as the minimum VPS size**, which is a direct input to the
+Phase 1C cost model. Full report:
+[`spikes/oq-13-pdf-memory/`](../spikes/oq-13-pdf-memory/README.md).
+
+Both PDF-stack questions are now answered by measurement rather than assumption.
+The remaining first-priority item is **[OQ-1](#oq-1--invalidating--data-residency)**,
+data residency, which is a legal question and not one this team can close alone.
 
 ## 13.4 Product and commercial questions
 

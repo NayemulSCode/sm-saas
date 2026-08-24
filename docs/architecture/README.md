@@ -51,6 +51,7 @@ Read in order; each builds on the last.
 | Spike | Question | Outcome |
 |---|---|---|
 | [OQ-12 — Bangla shaping](spikes/oq-12-bangla-shaping/README.md) | Does Chromium + Noto Bengali actually render conjuncts, reph and matra reordering correctly? | **Passed.** [ADR-0009](adr/0009-pdf-rendering.md) confirmed; produced a measured line-height rule and three font-shipping decisions |
+| [OQ-13 — PDF memory](spikes/oq-13-pdf-memory/README.md) | Does a 500-document batch destabilise the shared host? | **No.** 4.1 min, 958 MB peak, no leak. Renderer stays put under a memory cap; sets **8 GB minimum host size** ([ADR-0002](adr/0002-hosting-and-region.md)) |
 
 ## Phase 1C — Platform and operations (not started)
 

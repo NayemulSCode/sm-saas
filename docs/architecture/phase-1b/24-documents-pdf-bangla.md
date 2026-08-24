@@ -147,17 +147,29 @@ because it is a formatting bug that looks like a typo and survives review.
 | Concern | Approach |
 |---|---|
 | Chunking | ~50 documents per job; a section at a time |
-| Page pool | Fixed number of Chromium pages, recycled; the browser restarts every N documents to cap memory |
-| Concurrency | Bounded per tenant, so one school's 500-card batch cannot starve another ([§7.4](../phase-1a/07-multi-tenancy.md)) |
+| **Page recycling** | **Close and reopen the page target every 25 renders.** Measured: 40% lower peak memory at no throughput cost |
+| **Browser restart** | **Not on a schedule** — only on crash or a failed health check. There is no leak to defend against, and a restart costs 1–3 s |
+| **Memory limit** | **Hard container limit (`mem_limit: 1.5g`).** Chromium sizes its caches to available memory; unbounded on a shared host it expands and starves PostgreSQL |
+| Concurrency | **One renderer per host**, and bounded per tenant so one school's 500-card batch cannot starve another ([§7.4](../phase-1a/07-multi-tenancy.md)) |
 | Progress | Per-chunk, visible to the requester |
 | Resumability | Completed chunks are not re-rendered on retry |
 | Output | Individual PDFs plus an optional merged file for printing |
 | Target | ≥ 500 report cards in ≤ 10 minutes ([§4.1](../phase-1a/04-non-functional-requirements.md)) |
 
-Memory is the constraint being managed here, and [OQ-13](../phase-1a/13-open-questions.md)
-measures it. If it destabilises the host, the renderer moves to its own machine —
-it is already a separate process with a queue in front
-([§6.6](../phase-1a/06-architecture-overview.md)).
+**Measured — [spike OQ-13](../spikes/oq-13-pdf-memory/README.md), 2026-08-24:**
+500 report cards in **4.1 minutes** (120.7 docs/min, p95 617 ms per document),
+peak **958 MB**, and **no leak** — per-document time was flat from the first
+quartile to the last. The 10-minute target holds even at half this throughput, so
+it survives a considerably weaker VPS.
+
+The renderer therefore **stays on the shared host**, and the spike sets **8 GB as
+the minimum VPS size**. If it does destabilise the host it moves to its own
+machine — it is already a separate process with a queue in front
+([§6.6](../phase-1a/06-architecture-overview.md)) — on the triggers in the spike
+report.
+
+Output is ~286 KB per one-page document, dominated by the two embedded Bengali
+font subsets, with a full `ToUnicode` text layer so PDFs stay searchable.
 
 ## 24.7 Document kinds
 

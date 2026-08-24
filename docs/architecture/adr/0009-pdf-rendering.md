@@ -93,9 +93,14 @@ option C remains a fallback for the same templates.
 - ~~OQ-12 — the shaping spike fails.~~ **Closed 2026-08-24: it passed.** This
   trigger can no longer fire; WeasyPrint and Typst remain documented fallbacks
   only for the memory case below.
-- **[OQ-13](../phase-1a/13-open-questions.md)** — Chromium memory destabilises
-  the host under a 500-document batch. First move the renderer to its own host
-  (it is already a separate process); only then reconsider the engine.
+- ~~OQ-13 — Chromium memory destabilises the host under a 500-document batch.~~
+  **Closed 2026-08-24: it does not.** 500 documents in 4.1 minutes, peak 958 MB,
+  no leak ([spike](../spikes/oq-13-pdf-memory/README.md)). The renderer stays on
+  the shared host under a hard container memory limit, with the page target
+  recycled every 25 renders. Extraction triggers — sustained peak above 1.2 GB,
+  interactive p95 degrading during batches, or concurrent batches needed — are
+  listed in the spike report. Moving the renderer out precedes reconsidering the
+  engine in every case.
 
 ## Verification requirement
 
