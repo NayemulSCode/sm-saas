@@ -6,9 +6,9 @@ secondary schools, Bangla- and English-medium, single-campus and multi-campus.
 Bilingual at launch: **English** (`en`) and **বাংলা** (`bn`, `bn-BD`).
 Currency **BDT**. Platform timezone **Asia/Dhaka**.
 
-> **Status: Phase 1A — architecture.** There is no application code in this
-> repository yet, by design. Phase 1 produces the architecture; Phase 2 the
-> engineering specification; Phase 3 the implementation. See
+> **Status: Phase 1A + 1B complete, 1C outstanding.** There is no application
+> code in this repository yet, by design. Phase 1 produces the architecture;
+> Phase 2 the engineering specification; Phase 3 the implementation. See
 > [`docs/architecture/`](docs/architecture/README.md).
 
 ## Start here
@@ -20,6 +20,7 @@ Currency **BDT**. Platform timezone **Asia/Dhaka**.
 | [ADR log](docs/architecture/adr/README.md) | Every significant decision, with its revisit trigger |
 | [Open questions](docs/architecture/phase-1a/13-open-questions.md) | What is assumed, and what breaks if the assumption is wrong |
 | [Contributing](CONTRIBUTING.md) | Branching, commits, PRs, how ADRs are amended |
+| [CLAUDE.md](CLAUDE.md) | Working context: the non-negotiables, vocabulary and rules, in one page |
 
 ## The shape of the system
 
