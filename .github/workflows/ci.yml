@@ -14,4 +14,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check links, ADR index and secret leakage
-        run: ./scripts/check-docs.sh
+        run: bash ./scripts/check-docs.sh
