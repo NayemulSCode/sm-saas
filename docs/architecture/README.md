@@ -24,7 +24,7 @@ Read in order; each builds on the last.
 | 11 | [Entity model](phase-1a/11-entity-model.md) | Schema sketches for ~102 MVP tables |
 | 12 | [ERD](phase-1a/12-erd.md) | Relationship fragments and the cardinalities people get wrong |
 | 13 | [Open questions](phase-1a/13-open-questions.md) | Assumptions, what breaks if wrong, contradictions found in the brief |
-| — | [ADR log](adr/README.md) | 24 decisions, each with a revisit trigger |
+| — | [ADR log](adr/README.md) | 30 decisions, each with a revisit trigger |
 
 ## Phase 1B — Domain and application (complete, awaiting review)
 
@@ -53,16 +53,37 @@ Read in order; each builds on the last.
 | [OQ-12 — Bangla shaping](spikes/oq-12-bangla-shaping/README.md) | Does Chromium + Noto Bengali actually render conjuncts, reph and matra reordering correctly? | **Passed.** [ADR-0009](adr/0009-pdf-rendering.md) confirmed; produced a measured line-height rule and three font-shipping decisions |
 | [OQ-13 — PDF memory](spikes/oq-13-pdf-memory/README.md) | Does a 500-document batch destabilise the shared host? | **No.** 4.1 min, 958 MB peak, no leak. Renderer stays put under a memory cap; sets **8 GB minimum host size** ([ADR-0002](adr/0002-hosting-and-region.md)) |
 
-## Phase 1C — Platform and operations (not started)
+## Phase 1C — Platform and operations (complete, awaiting review)
 
-Files and media, queues, caching, scalability triggers, security, observability,
-deployment, backup and DR, SaaS billing and tenant lifecycle, support console
-and impersonation, testing, CI/CD, project structure, capacity and cost model,
-risks, roadmap, and the consolidated architecture decision summary.
+| # | Document | Answers |
+|---|---|---|
+| 29 | [File and media](phase-1c/29-file-media.md) | Key layout, signed access, validation, quotas, retention |
+| 30 | [Queues and jobs](phase-1c/30-queues-jobs.md) | Queue topology, per-tenant fairness, retries, scheduled work |
+| 31 | [Caching](phase-1c/31-caching.md) | What is cached, what never is, invalidation, the Redis path |
+| 32 | [Scalability](phase-1c/32-scalability.md) | Staged growth with numeric trigger metrics; the two seasonal peaks |
+| 33 | [Security](phase-1c/33-security.md) | Threat model, data classification, secrets, incident response |
+| 34 | [Observability](phase-1c/34-observability.md) | Tenant context on every signal; the first ten minutes of an incident |
+| 35 | [Deployment](phase-1c/35-deployment.md) | Compose topology, environments, migrations, rollback |
+| 36 | [Backup and DR](phase-1c/36-backup-dr.md) | RPO 0 for money, restore drills, host-loss runbook |
+| 37 | [SaaS billing](phase-1c/37-saas-billing.md) | Plans, metering, dunning, and what suspension may not take away |
+| 38 | [Support console](phase-1c/38-support-console.md) | Operator surface and impersonation controls |
+| 39 | [Testing](phase-1c/39-testing.md) | The five non-negotiable suites; speed budget |
+| 40 | [CI/CD](phase-1c/40-ci-cd.md) | Pipeline, required checks, release, what CI substitutes for |
+| 41 | [Project structure](phase-1c/41-project-structure.md) | Full tree, and how each rule is enforced |
+| 42 | [Cost model](phase-1c/42-cost-model.md) | ~$105/mo at 100 schools; sensitivity; the real constraint |
+| 43 | [Risks](phase-1c/43-risks.md) | Ranked register with signals; accepted trade-offs |
+| 44 | [Future scalability](phase-1c/44-future-scalability.md) | What is permitted, what needs a rewrite, what to refuse |
+| 45 | [Roadmap](phase-1c/45-roadmap.md) | MVP / P2 / P3 sized against the November window |
+| 46 | **[Decision summary](phase-1c/46-decision-summary.md)** | **The consolidated handoff into Phase 2** |
 
 ## Reading it quickly
 
-If you have ten minutes: the [executive summary](phase-1a/01-executive-summary.md)
+If you have ten minutes: the
+**[decision summary](phase-1c/46-decision-summary.md)** — every settled decision,
+every fixed number, every deferred item with its trigger. It is the Phase 2
+handoff.
+
+If you have thirty: add the [executive summary](phase-1a/01-executive-summary.md)
 and the [ADR log](adr/README.md).
 
 If you are reviewing the riskiest parts: [multi-tenancy](phase-1a/07-multi-tenancy.md)

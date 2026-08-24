@@ -36,6 +36,12 @@ or lacks a `Revisit when` section.
 | [0022](0022-cms-public-projection.md) | Puck CMS deferred to Phase 2, behind a public projection boundary | Accepted | 20 tenants live and the website appears in retention talks |
 | [0023](0023-branding-contrast-guard.md) | Tenant branding with a computed contrast guard | Accepted | A compliance reason demands an exact unclamped colour |
 | [0024](0024-import-staging-model.md) | Three-phase import: stage, validate, all-or-nothing commit | Accepted | Duplicate review becomes the onboarding bottleneck |
+| [0025](0025-single-host-compose-deploy.md) | Docker Compose on one host, with a low-downtime rolling swap | Accepted | A contractual uptime commitment above 99.5% |
+| [0026](0026-backup-and-financial-rpo.md) | WAL archiving to a second provider, per-transaction sync commit for money | Accepted | A restore drill fails or exceeds 4 hours |
+| [0027](0027-observability-stack.md) | Sentry + self-hosted Prometheus/Grafana, tenant context everywhere, no tracing | Accepted | Modules extracted into services |
+| [0028](0028-testing-strategy.md) | Bottom-heavy tests, with five non-negotiable suites | Accepted | A defect class none of the five would have caught |
+| [0029](0029-impersonation-controls.md) | Impersonation is time-limited, reasoned, and visible to the tenant | Accepted | A tenant requires prior consent per session |
+| [0030](0030-manual-first-saas-billing.md) | Manual-first BDT billing; suspension never denies student records | Accepted | > 50 tenants, or > half a day of monthly reconciliation |
 
 ## The three triggers most likely to fire first
 
