@@ -120,7 +120,7 @@ coverage.
 | Loading | `font-display: swap`, preload the Bangla body face |
 | Fallback | System Bangla fonts declared in the stack — a fallback that cannot render Bangla shows boxes |
 | **PDF** | Fonts **pinned and baked into the worker image**, never fetched at render time ([ADR-0009](../adr/0009-pdf-rendering.md)) |
-| Line height | Bangla needs more leading than Latin — matras and reph sit above the line. Set per script, not globally |
+| Line height | **≥ 1.5 body, ≥ 1.35 floor in dense tables. Set per script, not globally.** Measured in [spike OQ-12](../spikes/oq-12-bangla-shaping/README.md): reph-bearing Bangla ascends ~23% higher than Latin, and a line mixing an upper mark with a deep stack needs 1.13em of ink — so `line-height: 1.0` clips |
 
 ## 22.5 Text handling in the data layer
 

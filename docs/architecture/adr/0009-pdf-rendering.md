@@ -52,6 +52,30 @@ does.
 that changes shaping would silently alter every future document; a font fetch
 that fails at 23:00 during a batch would produce boxes.
 
+### Validated 2026-08-24 — spike OQ-12
+
+The spike specified below was run before Phase 2. **All five shaping feature
+classes pass**: conjuncts including three-consonant stacks, ya-phala/ra-phala,
+reph, matra reordering, and Bangla numerals with Indic grouping. Font
+substitution was ruled out by measurement before trusting any rendering. Full
+report: [`../spikes/oq-12-bangla-shaping/`](../spikes/oq-12-bangla-shaping/README.md).
+
+This decision is therefore **confirmed rather than provisional**. The spike
+additionally fixes three shipping rules, all defending against *silent*
+degradation:
+
+| Rule | Reason |
+|---|---|
+| **Vendor the exact `.ttf` files** under `assets/fonts/` with SHA-256 checksums; do not install a distro font package | `fonts-noto-core` and friends change the shipped font between distribution versions, so an unrelated `apt upgrade` would silently change shaping and metrics |
+| **fontconfig configured with no Bengali fallback** beyond the vendored Noto | A missing font must produce visible tofu, not a silent substitution with different metrics that yields subtly wrong documents |
+| **Pin the Playwright browser revision** in the lockfile | The golden-image test then gates Chromium upgrades |
+
+It also produced a measured typographic constraint that was previously guessed:
+reph-bearing Bangla ascends **~23% higher than Latin** at the same font-size, and
+a line mixing an upper mark with a deep stack needs **1.13em of ink**. Bangla
+line-height is therefore **≥ 1.5** body / **≥ 1.35** floor in dense tables, set
+per script. `line-height: 1.0` clips.
+
 ## Consequences
 
 **Makes easy:** correct Bangla; designer-editable templates; identical preview
@@ -66,15 +90,21 @@ option C remains a fallback for the same templates.
 
 ## Revisit when
 
-- **[OQ-12](../phase-1a/13-open-questions.md)** — the week-one shaping spike
-  fails. Then WeasyPrint or Typst move up immediately.
+- ~~OQ-12 — the shaping spike fails.~~ **Closed 2026-08-24: it passed.** This
+  trigger can no longer fire; WeasyPrint and Typst remain documented fallbacks
+  only for the memory case below.
 - **[OQ-13](../phase-1a/13-open-questions.md)** — Chromium memory destabilises
   the host under a 500-document batch. First move the renderer to its own host
   (it is already a separate process); only then reconsider the engine.
 
 ## Verification requirement
 
-A **golden-image test in CI** renders a fixture containing reph, ya-phala,
-hasant, stacked conjuncts, Bangla numerals and mixed Bangla/Latin text, and
-compares against a committed reference image. Font or engine upgrades that
-change shaping fail the build rather than reaching a parent.
+A **golden-image test in CI** renders
+[`../spikes/oq-12-bangla-shaping/fixture.html`](../spikes/oq-12-bangla-shaping/fixture.html)
+— already committed — through the real PDF path on the Linux runner and compares
+against a reference image. Font or engine upgrades that change shaping fail the
+build rather than reaching a parent.
+
+The fixture pairs every case with a ZWNJ-forced control, so the test is readable
+by a human as well as by a pixel diff: if the shaped column ever comes to
+resemble its control, shaping has regressed.

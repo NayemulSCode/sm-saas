@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<title>OQ-12 — Bangla shaping fixture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600&family=Noto+Serif+Bengali:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#111; --rule:#d4d4d8; --bad:#b91c1c; --good:#15803d; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 32px; background: #fff; color: var(--ink);
+    font-family: 'Noto Sans Bengali', system-ui, sans-serif;
+  }
+  h1 { font: 600 20px/1.3 system-ui, sans-serif; margin: 0 0 4px; }
+  .sub { font: 400 12px/1.5 system-ui, sans-serif; color:#52525b; margin-bottom: 20px; }
+  h2 { font: 600 13px/1.4 system-ui, sans-serif; text-transform: uppercase;
+       letter-spacing: .06em; color:#3f3f46; margin: 24px 0 8px;
+       border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid var(--rule); padding: 7px 10px; vertical-align: middle; }
+  th { font: 600 11px/1.4 system-ui, sans-serif; text-align: left; background:#fafafa;
+       text-transform: uppercase; letter-spacing:.04em; color:#3f3f46; }
+  .lbl  { font: 400 11px/1.4 system-ui, sans-serif; color:#52525b; width: 210px; }
+  /* The specimen cell: large enough to judge glyph formation in a screenshot. */
+  .bn   { font-size: 34px; line-height: 1.75; }
+  .serif{ font-family: 'Noto Serif Bengali', serif; }
+  /* "Decomposed" column: the same code points forced apart with ZWNJ so the
+     reader can see what UNSHAPED output would look like. This is a visual
+     control, not a rendering mode the engine ever produces. */
+  .decomp { font-size: 22px; line-height: 1.7; color: var(--bad); }
+  .note { font: 400 11px/1.5 system-ui, sans-serif; color:#52525b; }
+  .narrow { width: 150px; }
+  .tight { line-height: 1.0; background:#fef2f2; }
+  .roomy { line-height: 1.75; background:#f0fdf4; }
+  .rc { font-size: 13px; }
+  .rc th, .rc td { padding: 5px 8px; }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<h1>OQ-12 — Bangla shaping fixture</h1>
+<p class="sub">
+  Renders every complex-script feature a report card depends on. The left column is
+  normal rendering; the right column forces the same code points apart with ZWNJ to
+  show what unshaped output looks like. If the two columns look alike, shaping failed.
+</p>
+
+<h2>1 · Conjuncts (যুক্তাক্ষর)</h2>
+<table>
+  <tr><th class="lbl">Cluster</th><th>Shaped — must be a single ligature</th><th>Unshaped control</th></tr>
+  <tr><td class="lbl">ক + ্ + ষ → ক্ষ</td><td class="bn">ক্ষ</td><td class="decomp">ক&zwnj;্&zwnj;ষ</td></tr>
+  <tr><td class="lbl">ঞ + ্ + জ → ঞ্জ</td><td class="bn">ঞ্জ</td><td class="decomp">ঞ&zwnj;্&zwnj;জ</td></tr>
+  <tr><td class="lbl">ন + ্ + ত + ্ + র → ন্ত্র</td><td class="bn">ন্ত্র</td><td class="decomp">ন&zwnj;্&zwnj;ত&zwnj;্&zwnj;র</td></tr>
+  <tr><td class="lbl">স + ্ + ত + ্ + র → স্ত্র</td><td class="bn">স্ত্র</td><td class="decomp">স&zwnj;্&zwnj;ত&zwnj;্&zwnj;র</td></tr>
+  <tr><td class="lbl">দ + ্ + ধ → দ্ধ</td><td class="bn">দ্ধ</td><td class="decomp">দ&zwnj;্&zwnj;ধ</td></tr>
+  <tr><td class="lbl">হ + ্ + ম → হ্ম</td><td class="bn">হ্ম</td><td class="decomp">হ&zwnj;্&zwnj;ম</td></tr>
+</table>
+
+<h2>2 · Ya-phala (্য) and Ra-phala (্র)</h2>
+<table>
+  <tr><th class="lbl">Form</th><th>Shaped</th><th>Unshaped control</th></tr>
+  <tr><td class="lbl">ব্য — ya-phala</td><td class="bn">ব্য</td><td class="decomp">ব&zwnj;্&zwnj;য</td></tr>
+  <tr><td class="lbl">ব্যবস্থা — in a word</td><td class="bn">ব্যবস্থা</td><td class="decomp">ব&zwnj;্&zwnj;য&zwnj;ব&zwnj;স&zwnj;্&zwnj;থ&zwnj;া</td></tr>
+  <tr><td class="lbl">প্র — ra-phala</td><td class="bn">প্র</td><td class="decomp">প&zwnj;্&zwnj;র</td></tr>
+  <tr><td class="lbl">শ্রেণি — "class"</td><td class="bn">শ্রেণি</td><td class="decomp">শ&zwnj;্&zwnj;র&zwnj;ে&zwnj;ণ&zwnj;ি</td></tr>
+</table>
+
+<h2>3 · Reph (র্) — the ra must ride ABOVE the following consonant</h2>
+<table>
+  <tr><th class="lbl">Form</th><th>Shaped — hook above, no leading র</th><th>Unshaped control</th></tr>
+  <tr><td class="lbl">র + ্ + ক → র্ক</td><td class="bn">র্ক</td><td class="decomp">র&zwnj;্&zwnj;ক</td></tr>
+  <tr><td class="lbl">কার্য — "work"</td><td class="bn">কার্য</td><td class="decomp">ক&zwnj;া&zwnj;র&zwnj;্&zwnj;য</td></tr>
+  <tr><td class="lbl">সূর্য — "sun"</td><td class="bn">সূর্য</td><td class="decomp">স&zwnj;ূ&zwnj;র&zwnj;্&zwnj;য</td></tr>
+  <tr><td class="lbl">বার্ষিক — "annual"</td><td class="bn">বার্ষিক</td><td class="decomp">ব&zwnj;া&zwnj;র&zwnj;্&zwnj;ষ&zwnj;ি&zwnj;ক</td></tr>
+</table>
+
+<h2>4 · Matra reordering — vowel signs that move</h2>
+<p class="note">
+  ি is stored AFTER the consonant and must render BEFORE it. ো and ৌ are split
+  matras: one part before, one part after. This is reordering, not substitution —
+  a renderer that only does ligatures still fails here.
+</p>
+<table>
+  <tr><th class="lbl">Sequence</th><th>Shaped</th><th>Unshaped control</th></tr>
+  <tr><td class="lbl">ক + ি → কি (i-matra moves LEFT)</td><td class="bn">কি</td><td class="decomp">ক&zwnj;ি</td></tr>
+  <tr><td class="lbl">ক + ে → কে</td><td class="bn">কে</td><td class="decomp">ক&zwnj;ে</td></tr>
+  <tr><td class="lbl">ক + ো → কো (split both sides)</td><td class="bn">কো</td><td class="decomp">ক&zwnj;ো</td></tr>
+  <tr><td class="lbl">ক + ৌ → কৌ (split both sides)</td><td class="bn">কৌ</td><td class="decomp">ক&zwnj;ৌ</td></tr>
+  <tr><td class="lbl">শিক্ষার্থী — "student"</td><td class="bn">শিক্ষার্থী</td><td class="decomp">শ&zwnj;ি&zwnj;ক&zwnj;্&zwnj;ষ&zwnj;া&zwnj;র&zwnj;্&zwnj;থ&zwnj;ী</td></tr>
+</table>
+
+<h2>5 · Numerals and Indic digit grouping</h2>
+<table>
+  <tr><th class="lbl">Case</th><th>Rendering</th><th class="note">Must be</th></tr>
+  <tr><td class="lbl">Bangla digits ০–৯</td><td class="bn">০ ১ ২ ৩ ৪ ৫ ৬ ৭ ৮ ৯</td><td class="note">Ten distinct Bangla glyphs, not Latin</td></tr>
+  <tr><td class="lbl">Indic grouping — lakh</td><td class="bn num">১,২৩,৪৫৬.৭৮</td><td class="note">2,2,3 grouping — <b>not</b> ১২৩,৪৫৬</td></tr>
+  <tr><td class="lbl">Currency</td><td class="bn num">৳ ১,২৩,৪৫৬.৭৮</td><td class="note">৳ U+09F3 present and aligned</td></tr>
+  <tr><td class="lbl">Amount in words</td><td class="bn">এক লক্ষ তেইশ হাজার চারশত ছাপ্পান্ন টাকা</td><td class="note">লক্ষ and ছাপ্পান্ন both conjunct-heavy</td></tr>
+</table>
+
+<h2>6 · Mixed script on one line</h2>
+<table>
+  <tr><td class="lbl">Latin + Bangla</td><td class="bn">Class 5 — পঞ্চম শ্রেণি</td></tr>
+  <tr><td class="lbl">Marks with state</td><td class="bn">গণিত — ৭৮ / ১০০ &nbsp; ইংরেজি — AB</td></tr>
+  <tr><td class="lbl">Serif face</td><td class="bn serif">পঞ্চম শ্রেণি — বার্ষিক পরীক্ষা ২০২৬</td></tr>
+</table>
+
+<h2>7 · Wrapping in a narrow column</h2>
+<p class="note">A long Bangla name in a report-card-width cell. Clusters must never
+break mid-conjunct, and matras must stay attached to their base.</p>
+<table>
+  <tr>
+    <td class="lbl">Narrow, roomy leading</td>
+    <td class="narrow bn roomy" style="font-size:22px">মোহাম্মদ শাহরিয়ার রহমান চৌধুরী</td>
+    <td class="lbl">Narrow, tight leading (line-height 1.0)</td>
+    <td class="narrow bn tight" style="font-size:22px">মোহাম্মদ শাহরিয়ার রহমান চৌধুরী</td>
+  </tr>
+</table>
+<p class="note">
+  The red cell tests matra/reph clipping: at line-height 1.0 the reph and ঊর্ধ্ব
+  matras can be cut off by the line box. If the red cell clips and the green does
+  not, the fix is per-script line-height, not a font change.
+</p>
+
+<h2>8 · Report-card excerpt — the real artefact</h2>
+<table class="rc">
+  <tr><th>বিষয়</th><th>সৃজনশীল</th><th>বহুনির্বাচনি</th><th>ব্যবহারিক</th><th>মোট</th><th>গ্রেড</th></tr>
+  <tr><td>বাংলা</td><td class="num">৫৬</td><td class="num">২২</td><td class="num">—</td><td class="num">৭৮</td><td>A+</td></tr>
+  <tr><td>ইংরেজি</td><td class="num">৪৮</td><td class="num">১৯</td><td class="num">—</td><td class="num">৬৭</td><td>A-</td></tr>
+  <tr><td>গণিত</td><td class="num">৬০</td><td class="num">২৪</td><td class="num">—</td><td class="num">৮৪</td><td>A+</td></tr>
+  <tr><td>বিজ্ঞান</td><td class="num">AB</td><td class="num">AB</td><td class="num">AB</td><td class="num">AB</td><td>—</td></tr>
+  <tr><td>ধর্ম ও নৈতিক শিক্ষা</td><td class="num">৫২</td><td class="num">২১</td><td class="num">—</td><td class="num">৭৩</td><td>A</td></tr>
+</table>
+<p class="note">
+  Row 4 is the FR-7.5 case: an absent student prints <b>AB</b>, never ০. The
+  header row exercises ব্যবহারিক, বহুনির্বাচনি and নৈতিক — three conjunct-heavy
+  strings at small size, which is where shaping defects hide.
+</p>
+
+</body>
+</html>

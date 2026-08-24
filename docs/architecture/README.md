@@ -46,6 +46,12 @@ Read in order; each builds on the last.
 | 27 | [Mobile and offline](phase-1b/27-mobile-offline.md) | PWA rationale, the outbox, conflict rules, the device clock problem |
 | 28 | [Accessibility](phase-1b/28-accessibility.md) | WCAG 2.2 AA, keyboard grids, two scripts, CI verification |
 
+## Spikes — questions answered by running them
+
+| Spike | Question | Outcome |
+|---|---|---|
+| [OQ-12 — Bangla shaping](spikes/oq-12-bangla-shaping/README.md) | Does Chromium + Noto Bengali actually render conjuncts, reph and matra reordering correctly? | **Passed.** [ADR-0009](adr/0009-pdf-rendering.md) confirmed; produced a measured line-height rule and three font-shipping decisions |
+
 ## Phase 1C — Platform and operations (not started)
 
 Files and media, queues, caching, scalability triggers, security, observability,

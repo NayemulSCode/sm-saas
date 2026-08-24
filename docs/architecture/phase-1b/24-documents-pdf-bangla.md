@@ -24,9 +24,16 @@ glyphs; a naive PDF library places code points left to right.
 it is wrong in a way every Bangladeshi reader notices immediately, on the
 document a parent keeps.
 
-**[OQ-12](../phase-1a/13-open-questions.md) is the week-one spike** that proves
-the chosen stack handles all five rows above at print resolution, in the
-container, with the pinned fonts.
+**[OQ-12](../phase-1a/13-open-questions.md) is closed — the spike passed.** All
+five rows above render correctly under Chromium with Noto Bengali, verified
+against ZWNJ-forced controls on 2026-08-24. Report and reproducible fixture:
+[`../spikes/oq-12-bangla-shaping/`](../spikes/oq-12-bangla-shaping/README.md).
+
+One measured constraint came out of it and applies to every template below:
+**Bangla line-height must be ≥ 1.5 (≥ 1.35 in dense table rows), set per
+script.** Reph-bearing Bangla ascends ~23% higher than Latin at the same
+font-size, and a line carrying both an upper mark and a deep stack needs 1.13em
+of ink — `line-height: 1.0` clips it.
 
 ## 24.2 Pipeline
 
@@ -96,7 +103,9 @@ destroyed that distinction at the last step.
 
 | Rule | Reason |
 |---|---|
-| **Pinned by version, baked into the worker image** | A font update that changes shaping would silently alter every future document |
+| **Vendored as exact `.ttf` files** under `assets/fonts/` with SHA-256 checksums, copied into the image by the Dockerfile | **Not a distro package.** `fonts-noto-core` and similar change the shipped font between distribution versions, so an unrelated `apt upgrade` would silently alter shaping and metrics |
+| **fontconfig configured with no Bengali fallback** beyond the vendored Noto | A missing font must produce visible tofu — a loud failure — never a silent substitution with different metrics |
+| Pinned by version, baked into the worker image | A font update that changes shaping would silently alter every future document |
 | Never fetched at render time | A failed fetch at 23:00 during a batch produces boxes |
 | Same font files as the web app | Preview and print cannot diverge |
 | `@font-face` with `local()` disabled | The host's fonts must never be substituted |
@@ -110,8 +119,15 @@ with Latin companions ([§22.4](22-i18n-architecture.md)).
 The mechanism that keeps 24.1 true over time. Runs in CI on every change to the
 renderer, the fonts, the templates or the container image.
 
+The fixture is **already written and committed** at
+[`../spikes/oq-12-bangla-shaping/fixture.html`](../spikes/oq-12-bangla-shaping/fixture.html).
+Phase 3 wires it into CI; nothing needs to be authored first. It pairs every case
+with a ZWNJ-forced control, so the diff is readable by a human as well as by a
+pixel comparison — if a shaped column ever comes to resemble its control,
+shaping has regressed.
+
 ```
-fixtures/bangla-shaping.html   contains, at minimum:
+docs/architecture/spikes/oq-12-bangla-shaping/fixture.html   contains:
   ক্ষ  ব্য  র্ক  কি  স্ত্র  ঞ্জ  ন্ত্র      conjuncts, ya-phala, reph, matra, clusters
   ০১২৩৪৫৬৭৮৯                                Bangla numerals
   "Class 5 — পঞ্চম শ্রেণি"                   mixed script on one line
