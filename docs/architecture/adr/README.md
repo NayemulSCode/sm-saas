@@ -1,0 +1,41 @@
+# Architecture Decision Records
+
+One file per significant decision. The record of what was believed at the time
+is the point — **never edit an accepted ADR's decision in place.** Write a new
+ADR that supersedes it and mark the old one `Superseded by ADR-00NN`.
+
+New ADR: copy [`TEMPLATE.md`](TEMPLATE.md), take the next free number, add a row
+below. CI fails if an ADR is missing from this index, lacks a `**Status:**` line,
+or lacks a `Revisit when` section.
+
+## Log
+
+| # | Decision | Status | Revisit trigger |
+|---|---|---|---|
+| [0001](0001-modular-monolith.md) | Modular monolith with a framework-free domain layer | Accepted | > 6 developers, or a module destabilises the host |
+| [0002](0002-hosting-and-region.md) | Hetzner/DO VPS in Singapore, Docker Compose, no Kubernetes | Accepted | Data-residency ruling; RTT > 120 ms; > 250 tenants |
+| [0003](0003-tenancy-model.md) | Shared schema with `tenant_id`, enforced by row-level security | Accepted | One tenant > 15% of DB size or IO |
+| [0004](0004-application-framework.md) | Next.js full-stack, not NestJS plus a separate frontend | Accepted | A non-web API consumer at real volume |
+| [0005](0005-orm.md) | Drizzle ORM, not Prisma | Accepted | > 4 developers; or Prisma ships RLS + partitioning support |
+| [0006](0006-identity-model.md) | Global login account, tenant-scoped person, membership between them | Accepted | Tenant SSO; a national student identifier |
+| [0007](0007-api-style.md) | Versioned REST, with a mandatory idempotency convention | Accepted | Partner integration needing flexible querying |
+| [0008](0008-ui-library.md) | shadcn/ui + Radix + Tailwind, with headless tables | Accepted | Data-grid build exceeds ~3 weeks cumulative |
+| [0009](0009-pdf-rendering.md) | Headless Chromium with pinned Noto Bengali fonts for PDF | Accepted | Shaping spike fails; Chromium memory destabilises the host |
+| [0010](0010-job-queue.md) | pg-boss for background jobs, so enqueue is transactional | Accepted | Sustained enqueue > 500/s; job IO becomes material |
+| [0011](0011-money-representation.md) | Money as integer minor units in `bigint` | Accepted | A second currency is genuinely needed |
+| [0012](0012-assessment-engine.md) | Assessment as a versioned declarative rules engine | Accepted | 3+ schools need a rule the vocabulary cannot express |
+| [0013](0013-calendar-as-infrastructure.md) | The academic calendar is infrastructure, with one materialized answer | Accepted | Per-student calendars; rebuild > 30 s per tenant-year |
+| [0014](0014-defer-redis.md) | Defer Redis until a second application node exists | Accepted | **A second application node is planned** |
+| [0015](0015-object-storage.md) | Cloudflare R2 for object storage, behind an S3-compatible interface | Accepted | Data-residency ruling; R2 egress pricing changes |
+| [0016](0016-identifier-strategy.md) | ULID primary keys stored in `uuid` columns | Accepted | Native `uuidv7()` available in the deployed PostgreSQL |
+
+## The three triggers most likely to fire first
+
+1. **[ADR-0014](0014-defer-redis.md)** — Redis must be added *before* a second
+   application node serves traffic, not after. Sequencing matters.
+2. **[ADR-0009](0009-pdf-rendering.md)** — the Bangla shaping spike
+   ([OQ-12](../phase-1a/13-open-questions.md)) is a week-one task, and a failure
+   changes the rendering engine.
+3. **[ADR-0002](0002-hosting-and-region.md)** and
+   **[ADR-0015](0015-object-storage.md)** — both fall to a single data-residency
+   ruling ([OQ-1](../phase-1a/13-open-questions.md)). Ask the lawyer early.
