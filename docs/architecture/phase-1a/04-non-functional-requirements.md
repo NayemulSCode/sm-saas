@@ -23,7 +23,7 @@ assumption in [`CONSTRAINTS.md`](../CONSTRAINTS.md).
 | Bulk import ceiling | 5,000 rows or 20 MB per batch | Larger files are split by the importer |
 | Report generation — interactive | ≤ 3 s or it becomes a background job | |
 | Report generation — background | ≤ 5 min for a school-wide annual report | |
-| PDF batch generation | ≥ 500 report cards in ≤ 10 min | One section's marksheets in under a minute |
+| PDF batch generation | ≥ 500 report cards in ≤ 10 min | **Validated: 4.1 min measured** ([spike OQ-13](../spikes/oq-13-pdf-memory/README.md)). Target retained for headroom on weaker hardware |
 | SMS dispatch | ≥ 20 messages/s sustained, provider permitting | |
 | Backup retention | Daily base 30 days; WAL 7 days PITR; monthly archive 12 months | |
 | Restore drill cadence | **Quarterly**, on a real restore to a scratch host | An untested backup is not a backup |

@@ -40,10 +40,14 @@ credentials.json
 /blob-report
 /.playwright
 
-# Claude Code: share the dev-server launch config, keep personal settings and
-# agent worktrees (which are full nested checkouts) out.
+# Claude Code: share the team-wide settings and the dev-server launch config,
+# keep personal overrides and agent worktrees (full nested checkouts) out.
+# Project context lives in CLAUDE.md at the repository root and IS committed —
+# it is the file a fresh session reads before touching anything.
 .claude/*
+!.claude/settings.json
 !.claude/launch.json
+.claude/settings.local.json
 
 # Editors and OS
 .vscode/*

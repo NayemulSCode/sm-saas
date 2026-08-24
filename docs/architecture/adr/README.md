@@ -28,6 +28,14 @@ or lacks a `Revisit when` section.
 | [0014](0014-defer-redis.md) | Defer Redis until a second application node exists | Accepted | **A second application node is planned** |
 | [0015](0015-object-storage.md) | Cloudflare R2 for object storage, behind an S3-compatible interface | Accepted | Data-residency ruling; R2 egress pricing changes |
 | [0016](0016-identifier-strategy.md) | ULID primary keys stored in `uuid` columns | Accepted | Native `uuidv7()` available in the deployed PostgreSQL |
+| [0017](0017-pwa-not-native.md) | PWA, not native mobile apps | Accepted | Guardian push becomes required and SMS cost makes it economic |
+| [0018](0018-offline-sync-model.md) | Client-generated ULID outbox for offline capture | Accepted | A third flow needs offline capture |
+| [0019](0019-i18n-content-split.md) | Three-way split of translatable text; bilingual names as two real columns | Accepted | A third language makes paired columns unwieldy |
+| [0020](0020-payment-provider-abstraction.md) | Provider-agnostic payments with an explicit `unknown` state | Accepted | Settlement reconciliation cannot close with a provider |
+| [0021](0021-reporting-data-path.md) | Staged reporting path: primary → replica → rollups → warehouse | Accepted | Any stage trigger metric is hit |
+| [0022](0022-cms-public-projection.md) | Puck CMS deferred to Phase 2, behind a public projection boundary | Accepted | 20 tenants live and the website appears in retention talks |
+| [0023](0023-branding-contrast-guard.md) | Tenant branding with a computed contrast guard | Accepted | A compliance reason demands an exact unclamped colour |
+| [0024](0024-import-staging-model.md) | Three-phase import: stage, validate, all-or-nothing commit | Accepted | Duplicate review becomes the onboarding bottleneck |
 
 ## The three triggers most likely to fire first
 
