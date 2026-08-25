@@ -336,8 +336,10 @@ describe('behavioural: no tenant table leaks', () => {
           [TENANT_A, SCHOOL_B], // tenant A's row, tenant B's school
         ),
       ).rejects.toThrow();
-      await c.query('ROLLBACK');
     } finally {
+      // In `finally`, so a failed assertion cannot leave the transaction open
+      // and poison the tests that follow on this pooled connection.
+      await c.query('ROLLBACK').catch(() => undefined);
       c.release();
     }
   });
