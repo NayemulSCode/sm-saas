@@ -57,28 +57,41 @@ for all three critical screens.
 | 15 | [Notification and SMS](phase-2b/15-notification-and-sms.md) | Segment counting, deduplication, budgets, dispatch policy, provider interface |
 | 16 | [Import templates](phase-2b/16-import-templates.md) | Template columns, three-tier validation, duplicate detection, commit and undo, export |
 
-## Phase 2C — assessment, deliberately deferred
+## Phase 2C — documents
 
-**Assessment (3d) is not specified here, on purpose.**
+Specifies **3d** (assessment, documents) and **3e** (SaaS billing, operator
+console, reporting), completing the engineering specification.
 
-The roadmap says Phase 3d is *"built against the pilot schools' real grading
-rules"*, and the pilot (Jun–Oct 2027) exists partly to **produce real assessment
-configurations to use as fixtures**
-([§45.3](../architecture/phase-1c/45-roadmap.md)). Writing final DDL for the
-riskiest module fourteen months early, before the fixtures that would validate
-it exist, is speculation dressed as progress — and every school's grading rules
-differ, which is the whole reason it is a rules engine.
+| # | Document | Answers |
+|---|---|---|
+| 17 | [Assessment — schema](phase-2c/17-assessment-schema.md) | Grade scales, versioned schemes, components, exams, marks, results, promotion |
+| 18 | [Assessment — the engine](phase-2c/18-assessment-engine.md) | The rule vocabulary and the four pure functions: evaluate, aggregate, rank, promote |
+| 19 | [Assessment — lifecycle and API](phase-2c/19-assessment-api.md) | Exam state machine, mark entry contract, publication, revision, promotion |
+| 20 | [Documents and report cards](phase-2c/20-documents-and-report-cards.md) | Template registry, typed render contexts, batch rendering, the golden-image test wired |
+| 21 | [SaaS billing and the console](phase-2c/21-saas-billing-and-console.md) | Tenant lifecycle, metering, manual-first billing, operator console, impersonation |
+| 22 | [Reporting](phase-2c/22-reporting.md) | Report definitions as data, the catalogue, export, caching, rollups |
 
-What already exists is enough to build against and does not need repeating:
+### Written ahead of the pilot — what to re-check before building 3d
 
-| Already specified | Where |
+Phase 2C was written now at the project owner's direction. The recommendation had
+been to wait, because the roadmap says 3d is *"built against the pilot schools'
+real grading rules"* and the pilot exists partly to produce those configurations
+as fixtures ([§45.3](../architecture/phase-1c/45-roadmap.md)).
+
+The specification is structured so that absorbing the pilot's findings is a
+migration and a Zod edit, not a redesign. **Every element expected to change is a
+rule object or a data row, never a table shape.**
+
+| Confidence | Elements |
 |---|---|
-| The rule vocabulary, evaluation pipeline, exam lifecycle | [§15, Phase 1B](../architecture/phase-1b/15-assessment-engine.md) |
-| Entity sketch for schemes, components, marks, snapshots | [§11.8, Phase 1A](../architecture/phase-1a/11-entity-model.md) |
-| The `ABSENT` constraint and mark states | [ADR-0012](../architecture/adr/0012-assessment-engine.md), [§1.3](phase-2a/01-conventions.md) |
-| The marks grid interaction contract | [§12.3](phase-2b/12-component-inventory.md) |
+| **Settled — will not change** | `mark.state` and its `CHECK` (invariant 4) · immutable versioned `result_snapshot` (invariant 5) · publication as a reversible, audience-windowed event · `computation_hash` · component model with independent pass marks |
+| **Medium — extend the union, then migrate** | Aggregation rule vocabulary · `optional_subject_rule` shape (the most likely revision) · ranking tie-breaks · promotion rule shape |
+| **Low — seed data, zero code impact** | GPA 5.0 bands, descriptive levels, report card layouts |
 
-**Write Phase 2C after the pilot**, with two or three real schemes in hand.
+Full breakdown: [§17.9](phase-2c/17-assessment-schema.md). The one acceptance
+criterion that genuinely cannot be met yet is **§19.7 item 11** — two real pilot
+schemes reproducing their known-correct outputs. Write those fixtures the moment
+the pilot supplies them.
 
 ## The one correction to Phase 1
 
