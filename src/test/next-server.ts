@@ -23,7 +23,16 @@ export interface TestServer {
 export async function startNextServer(port = 3123): Promise<TestServer> {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    NODE_ENV: 'production',
+    /**
+     * `test`, not `production`, even though this serves a production build.
+     *
+     * `otpDispatcher()` refuses SMS_PROVIDER=mock when NODE_ENV=production —
+     * a mock dispatcher in production means guardians silently never receive a
+     * code, and it looks like "OTP is broken" for weeks. The guard is correct;
+     * claiming production here would be the harness lying about what it is.
+     * `next start` serves the built output regardless of this value.
+     */
+    NODE_ENV: 'test',
     PORT: String(port),
     APP_URL: `http://localhost:${port}`,
     PLATFORM_HOST: 'admin.localhost',
