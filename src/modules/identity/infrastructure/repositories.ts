@@ -5,7 +5,7 @@
  * transaction: the use case owns the transaction boundary (§6.3).
  */
 
-import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '../../../db/rls.js';
 import {
   account,
@@ -17,7 +17,9 @@ import {
   rolePermission,
   session,
 } from '../../../db/schema/identity.js';
-import type { AccountId, CredentialId, SessionId } from '../../../shared/ids.js';
+import { tenant } from '../../../db/schema/platform.js';
+import { person } from '../../../db/schema/directory.js';
+import type { AccountId, CredentialId, MembershipId, SessionId } from '../../../shared/ids.js';
 import { Ids } from '../../../shared/ids.js';
 
 export interface CredentialRow {
@@ -207,17 +209,58 @@ export const memberships = {
       .select({
         membershipId: membership.id,
         tenantId: membership.tenantId,
+        tenantSlug: tenant.slug,
+        tenantNameBn: tenant.nameBn,
+        tenantNameEn: tenant.nameEn,
+        tenantStatus: tenant.status,
         personId: membership.personId,
-        status: membership.status,
+        personNameBn: person.nameBn,
+        personNameEn: person.nameEn,
       })
       .from(membership)
+      .innerJoin(tenant, eq(tenant.id, membership.tenantId))
+      .innerJoin(person, eq(person.id, membership.personId))
       .where(
         and(
           eq(membership.accountId, accountId),
           eq(membership.status, 'active'),
           isNull(membership.deletedAt),
+          // A purged or cancelled tenant is not a context anyone can enter.
+          notInArray(tenant.status, ['purged', 'cancelled']),
         ),
       );
+  },
+
+  /**
+   * Verifies a membership belongs to THIS account.
+   *
+   * The client sends a membership id when switching context. Without this
+   * check it could name any membership and be handed another tenant's session
+   * — which is why the lookup is by (id AND account_id), never by id alone
+   * (§8.4).
+   */
+  async forAccount(tx: Tx, membershipId: MembershipId, accountId: AccountId) {
+    const [row] = await tx
+      .select({
+        membershipId: membership.id,
+        tenantId: membership.tenantId,
+        tenantSlug: tenant.slug,
+        tenantStatus: tenant.status,
+        personId: membership.personId,
+        status: membership.status,
+      })
+      .from(membership)
+      .innerJoin(tenant, eq(tenant.id, membership.tenantId))
+      .where(
+        and(
+          eq(membership.id, membershipId),
+          eq(membership.accountId, accountId),
+          eq(membership.status, 'active'),
+          isNull(membership.deletedAt),
+        ),
+      )
+      .limit(1);
+    return row;
   },
 
   async permissionsFor(tx: Tx, membershipId: string) {
