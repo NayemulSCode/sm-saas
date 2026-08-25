@@ -14,7 +14,7 @@ export {
   type Db,
   type Tx,
   type WithTenantOptions,
-} from './rls.js';
+} from './rls';
 
 /** Process lifecycle only — called by an entrypoint on shutdown. */
-export { closeAllPools } from './pool.js';
+export { closeAllPools } from './pool';

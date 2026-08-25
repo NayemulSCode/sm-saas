@@ -1,7 +1,7 @@
 /** Directory tables (migrations 0005, 0008). All tenant-owned, all RLS. */
 import { integer, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { instant, localDate, ulidCol } from '../types.js';
+import { instant, localDate, ulidCol } from '../types';
 
 const tenantColumns = <T extends string>() => ({
   id: ulidCol<T>('id').primaryKey(),

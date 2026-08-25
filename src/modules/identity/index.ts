@@ -8,29 +8,29 @@
  */
 
 // ── use cases ───────────────────────────────────────────────────────────────
-export { requestOtp } from './application/requestOtp.js';
+export { requestOtp } from './application/requestOtp';
 export type {
   RequestOtpInput,
   RequestOtpDeps,
   RequestOtpResult,
-} from './application/requestOtp.js';
+} from './application/requestOtp';
 
-export { verifyOtp, IdentityErrors } from './application/verifyOtp.js';
+export { verifyOtp, IdentityErrors } from './application/verifyOtp';
 export type {
   VerifyOtpInput,
   VerifyOtpDeps,
   VerifyOtpResult,
   ResolvedContext,
-} from './application/verifyOtp.js';
+} from './application/verifyOtp';
 
 // ── domain policy, exported because the transport layer needs the numbers ───
-export { OTP } from './domain/otp.js';
-export { SESSION_POLICY, evaluateSession, shouldTouchLastSeen } from './domain/session.js';
-export type { SessionAudience, SessionState, SessionVerdict } from './domain/session.js';
+export { OTP } from './domain/otp';
+export { SESSION_POLICY, evaluateSession, shouldTouchLastSeen } from './domain/session';
+export type { SessionAudience, SessionState, SessionVerdict } from './domain/session';
 
 // ── normalisation, used by the Zod schemas at the API boundary ──────────────
-export { normalisePhone, normaliseEmail, normaliseIdentifier } from './domain/phone.js';
-export type { CredentialKind, CredentialError } from './domain/phone.js';
+export { normalisePhone, normaliseEmail, normaliseIdentifier } from './domain/phone';
+export type { CredentialKind, CredentialError } from './domain/phone';
 
 // ── ports, so a caller can supply adapters (and tests can supply fakes) ─────
 export type {
@@ -41,7 +41,7 @@ export type {
   OtpDispatcher,
   AuthenticationContext,
   ContextResolver,
-} from './domain/ports.js';
+} from './domain/ports';
 
 // ── the production adapters ─────────────────────────────────────────────────
 export {
@@ -49,7 +49,7 @@ export {
   codeHasher,
   tokenGenerator,
   randomSource,
-} from './infrastructure/crypto.js';
+} from './infrastructure/crypto';
 
 // ── session and context switching ───────────────────────────────────────────
 export {
@@ -57,9 +57,21 @@ export {
   listContexts,
   switchContext,
   SessionErrors,
-} from './application/switchContext.js';
+} from './application/switchContext';
 export type {
   SessionDeps,
   AvailableContext,
   ResolvedSession,
-} from './application/switchContext.js';
+} from './application/switchContext';
+export { revokeSession, revokeAllSessions } from './application/switchContext';
+
+// ── request DTOs, shared by the client form and the server handler ──────────
+export {
+  OtpRequestSchema,
+  OtpVerifySchema,
+  ActivateContextSchema,
+} from './application/dto';
+export type { OtpRequestDto, OtpVerifyDto, ActivateContextDto } from './application/dto';
+
+// ── OTP delivery adapter ────────────────────────────────────────────────────
+export { otpDispatcher, mockOtpDispatcher } from './infrastructure/otpDispatcher';

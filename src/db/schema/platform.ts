@@ -1,6 +1,6 @@
 /** Platform-scoped tables (migration 0003). No tenant_id, no RLS. */
 import { boolean, char, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
-import { instant, moneyMinor, ulidCol } from '../types.js';
+import { instant, moneyMinor, ulidCol } from '../types';
 
 export const plan = pgTable('plan', {
   id: ulidCol<'plan'>('id').primaryKey(),

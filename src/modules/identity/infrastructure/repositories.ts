@@ -6,7 +6,7 @@
  */
 
 import { and, eq, gt, isNull, notInArray, sql } from 'drizzle-orm';
-import type { Tx } from '../../../db/rls.js';
+import type { Tx } from '../../../db/rls';
 import {
   account,
   credential,
@@ -16,11 +16,11 @@ import {
   role,
   rolePermission,
   session,
-} from '../../../db/schema/identity.js';
-import { tenant } from '../../../db/schema/platform.js';
-import { person } from '../../../db/schema/directory.js';
-import type { AccountId, CredentialId, MembershipId, SessionId } from '../../../shared/ids.js';
-import { Ids } from '../../../shared/ids.js';
+} from '../../../db/schema/identity';
+import { tenant } from '../../../db/schema/platform';
+import { person } from '../../../db/schema/directory';
+import type { AccountId, CredentialId, MembershipId, SessionId } from '../../../shared/ids';
+import { Ids } from '../../../shared/ids';
 
 export interface CredentialRow {
   id: CredentialId;

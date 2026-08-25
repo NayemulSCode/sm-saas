@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Ids, type StudentId, type EnrolmentId } from './ids.js';
+import { Ids, type StudentId, type EnrolmentId } from './ids';
 
 describe('Ids', () => {
   it('generates a 26-character Crockford base32 ULID', () => {

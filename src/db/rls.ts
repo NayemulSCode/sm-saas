@@ -14,9 +14,9 @@
 import { sql } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
-import { appPoolFor, platformPool, readonlyPool } from './pool.js';
-import type { AuthContext } from '../shared/auth-context.js';
-import { Ids } from '../shared/ids.js';
+import { appPoolFor, platformPool, readonlyPool } from './pool';
+import type { AuthContext } from '../shared/auth-context';
+import { Ids } from '../shared/ids';
 
 export type Db = NodePgDatabase<Record<string, never>>;
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];

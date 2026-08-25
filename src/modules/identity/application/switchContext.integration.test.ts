@@ -9,17 +9,17 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Pool } from 'pg';
-import { requestOtp } from './requestOtp.js';
-import { verifyOtp } from './verifyOtp.js';
+import { requestOtp } from './requestOtp';
+import { verifyOtp } from './verifyOtp';
 import {
   listContexts,
   resolveSession,
   switchContext,
   SessionErrors,
-} from './switchContext.js';
-import { codeHasher, tokenGenerator, randomSource } from '../infrastructure/crypto.js';
-import type { OtpDispatcher } from '../domain/ports.js';
-import { Ids } from '../../../shared/ids.js';
+} from './switchContext';
+import { codeHasher, tokenGenerator, randomSource } from '../infrastructure/crypto';
+import type { OtpDispatcher } from '../domain/ports';
+import { Ids } from '../../../shared/ids';
 
 
 const ADMIN_URL = process.env.DATABASE_URL_MIGRATOR;
@@ -154,7 +154,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const { closeAllPools } = await import('../../../db/index.js');
+  const { closeAllPools } = await import('../../../db/index');
   await closeAllPools();
   await admin?.end();
 });

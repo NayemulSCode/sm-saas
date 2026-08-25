@@ -6,7 +6,7 @@ import {
   shouldTouchLastSeen,
   LAST_SEEN_WRITE_INTERVAL_SECONDS,
   type SessionState,
-} from './session.js';
+} from './session';
 
 const NOW = new Date('2027-01-15T08:30:00Z');
 const ago = (seconds: number) => new Date(NOW.getTime() - seconds * 1000);

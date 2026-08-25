@@ -16,9 +16,9 @@ import type {
   SessionId,
   SubjectId,
   TenantId,
-} from './ids.js';
-import type { Permission } from './permissions.js';
-import { isWritePermission } from './permissions.js';
+} from './ids';
+import type { Permission } from './permissions';
+import { isWritePermission } from './permissions';
 
 export interface Scope {
   /** An absent key means unrestricted WITHIN the tenant. Never across tenants. */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LocalDate, DateRange, type Clock } from './date.js';
+import { LocalDate, DateRange, type Clock } from './date';
 
 const d = (s: string) => {
   const r = LocalDate.parse(s);

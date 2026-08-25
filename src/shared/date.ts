@@ -9,8 +9,8 @@
  * Instants       → Date      ↔ `timestamptz`
  */
 
-import { type Result, ok, err } from './result.js';
-import { toLatinDigits } from './money.js';
+import { type Result, ok, err } from './result';
+import { toLatinDigits } from './money';
 
 export const PLATFORM_TIMEZONE = 'Asia/Dhaka' as const;
 

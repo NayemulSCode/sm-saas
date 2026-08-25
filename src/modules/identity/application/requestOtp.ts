@@ -11,17 +11,17 @@
  * at a school.
  */
 
-import { withPlatform } from '../../../db/rls.js';
-import { type Result, ok } from '../../../shared/result.js';
-import { normaliseIdentifier } from '../domain/phone.js';
+import { withPlatform } from '../../../db/rls';
+import { type Result, ok } from '../../../shared/result';
+import { normaliseIdentifier } from '../domain/phone';
 import {
   OTP,
   expiryFrom,
   generateCode,
   shouldReuseChallenge,
-} from '../domain/otp.js';
-import type { CodeHasher, OtpDispatcher, RandomSource } from '../domain/ports.js';
-import { credentials, otpChallenges } from '../infrastructure/repositories.js';
+} from '../domain/otp';
+import type { CodeHasher, OtpDispatcher, RandomSource } from '../domain/ports';
+import { credentials, otpChallenges } from '../infrastructure/repositories';
 
 export interface RequestOtpInput {
   identifier: string;

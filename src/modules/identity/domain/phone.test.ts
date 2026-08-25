@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalisePhone, normaliseEmail, normaliseIdentifier } from './phone.js';
+import { normalisePhone, normaliseEmail, normaliseIdentifier } from './phone';
 
 const unwrap = (r: ReturnType<typeof normalisePhone>): string => {
   if (!r.ok) throw new Error(`expected ok, got ${r.error.code}`);

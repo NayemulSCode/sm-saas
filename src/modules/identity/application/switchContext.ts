@@ -10,12 +10,12 @@
  * cannot happen inside a tenant session, because the tenant is the answer.
  */
 
-import { withPlatform } from '../../../db/rls.js';
-import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result.js';
-import { evaluateSession, shouldTouchLastSeen, type SessionAudience } from '../domain/session.js';
-import type { TokenGenerator } from '../domain/ports.js';
-import type { AccountId, MembershipId, SessionId } from '../../../shared/ids.js';
-import { memberships, sessions } from '../infrastructure/repositories.js';
+import { withPlatform } from '../../../db/rls';
+import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
+import { evaluateSession, shouldTouchLastSeen, type SessionAudience } from '../domain/session';
+import type { TokenGenerator } from '../domain/ports';
+import type { AccountId, MembershipId, SessionId } from '../../../shared/ids';
+import { memberships, sessions } from '../infrastructure/repositories';
 
 export const SessionErrors = defineErrors({
   SESSION_INVALID: {
@@ -173,4 +173,22 @@ export async function switchContext(
       tenantSlug: m.tenantSlug,
     });
   });
+}
+
+/**
+ * Revokes one session. Takes effect on the very next request, because the
+ * session is server-side state rather than a signed token — which is the whole
+ * reason for not using JWTs (NFR §4.6).
+ */
+export async function revokeSession(sessionId: SessionId): Promise<void> {
+  await withPlatform('session: revoke a single session', async (tx) => {
+    await sessions.revoke(tx, sessionId);
+  });
+}
+
+/** Every session for an account — used when a credential is compromised. */
+export async function revokeAllSessions(accountId: AccountId): Promise<number> {
+  return withPlatform('session: revoke every session for an account', async (tx) =>
+    sessions.revokeAllForAccount(tx, accountId),
+  );
 }

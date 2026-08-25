@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSurface } from './middleware.js';
+import { resolveSurface } from './middleware';
 
 const ROOT = 'sm.example.com';
 const ADMIN = 'admin.sm.example.com';

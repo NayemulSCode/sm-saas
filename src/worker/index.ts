@@ -9,8 +9,8 @@
  * process starts, connects, and shuts down cleanly.
  */
 
-import { env } from '../config/env.js';
-import { closeAllPools } from '../db/index.js';
+import { env } from '../config/env';
+import { closeAllPools } from '../db/index';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void => {
   // Structured, and carrying tenant context where there is one. No PII —
