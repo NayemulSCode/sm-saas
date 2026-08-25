@@ -76,18 +76,6 @@ CREATE TABLE tenant (
 CREATE INDEX tenant_status_idx  ON tenant (status) WHERE status <> 'purged';
 CREATE INDEX tenant_shard_idx   ON tenant (shard_id);
 
-/*
- * Per-tenant entitlement override.
- *
- * Phase 1 §11.1 classified this as platform-scoped, and the isolation harness
- * disagreed — the table carries `tenant_id`, so under the "no exceptions list"
- * rule it must be protected. The harness is right and the classification was
- * wrong: these rows ARE per-tenant data, a tenant should see only its own, and
- * the operator path already uses sm_platform, which bypasses RLS by design.
- *
- * Caught by CI on the migration that introduced it, which is exactly what a
- * catalogue-generated guard is for.
- */
 CREATE TABLE tenant_feature_override (
   tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   feature_key text NOT NULL,
@@ -100,7 +88,6 @@ CREATE TABLE tenant_feature_override (
   created_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, feature_key)
 );
-SELECT app.enable_tenant_rls('tenant_feature_override');
 
 -- ── The permission vocabulary ───────────────────────────────────────────────
 -- Generated FROM the TypeScript union in src/shared/permissions.ts. Code is the
