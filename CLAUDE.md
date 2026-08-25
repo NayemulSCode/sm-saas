@@ -5,8 +5,9 @@ anything; it is the short version of decisions that are expensive to rediscover.
 
 ## Where you are
 
-**Phase 1 and Phase 2 complete. Phase 3a has STARTED** — the foundation is
-scaffolded and there is now application code in `src/`.
+**Phase 1 complete. Phase 2 complete (2A, 2B, 2C).** There is deliberately **no application
+code** in this repository yet. Phase 1 produced the architecture, Phase 2 the
+engineering specification, Phase 3 the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
 `pnpm verify` (typecheck + lint + tests) and keep it green.
