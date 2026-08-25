@@ -19,6 +19,7 @@ the current task explicitly says Phase 3 has started.
 | **What Phase 3a is built from** | [`docs/engineering/README.md`](docs/engineering/README.md) |
 | Why something is the way it is | [`docs/architecture/adr/README.md`](docs/architecture/adr/README.md) |
 | What is assumed rather than known | [`docs/architecture/phase-1a/13-open-questions.md`](docs/architecture/phase-1a/13-open-questions.md) |
+| **Long-lead items nobody has started** | [`docs/EXTERNAL-ACTIONS.md`](docs/EXTERNAL-ACTIONS.md) — check at the start of every phase |
 | The budget/team reality behind every trade-off | [`docs/architecture/CONSTRAINTS.md`](docs/architecture/CONSTRAINTS.md) |
 
 When Phase 3a starts, the first commit is specified in

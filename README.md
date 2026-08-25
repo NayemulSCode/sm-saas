@@ -23,6 +23,7 @@ Currency **BDT**. Platform timezone **Asia/Dhaka**.
 | [Constraints](docs/architecture/CONSTRAINTS.md) | The values every trade-off is argued against |
 | [ADR log](docs/architecture/adr/README.md) | Every significant decision, with its revisit trigger |
 | [Engineering spec](docs/engineering/README.md) | Phase 2: schema DDL, RLS harness, API contracts, conventions |
+| [External actions](docs/EXTERNAL-ACTIONS.md) | The four long-lead items engineering cannot produce — lawyer, BTRC, pricing, latency |
 | [Open questions](docs/architecture/phase-1a/13-open-questions.md) | What is assumed, and what breaks if the assumption is wrong |
 | [Contributing](CONTRIBUTING.md) | Branching, commits, PRs, how ADRs are amended |
 | [CLAUDE.md](CLAUDE.md) | Working context: the non-negotiables, vocabulary and rules, in one page |

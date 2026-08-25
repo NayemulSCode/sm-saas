@@ -128,6 +128,10 @@ Phase 2 and Phase 3 may not weaken any of these without a superseding ADR.
 
 ## 46.6 Open questions carried into Phase 2
 
+The four that need people rather than documents — OQ-1, OQ-2, OQ-5, OQ-11 — are
+tracked with owners and dates in
+[`docs/EXTERNAL-ACTIONS.md`](../../EXTERNAL-ACTIONS.md).
+
 | # | Question | Status | Impact if unanswered |
 |---|---|---|---|
 | **OQ-1** | **Data residency** | **OPEN — ask a lawyer in week one** | Invalidates [ADR-0002](../adr/0002-hosting-and-region.md) and [ADR-0015](../adr/0015-object-storage.md); +2–4 weeks, ~3× infra cost |
