@@ -23,6 +23,8 @@ const TENANT_A = '01930000-0000-7000-8000-00000000000a';
 const TENANT_B = '01930000-0000-7000-8000-00000000000b';
 const PERSON_A = '01930000-0000-7000-8000-0000000000a1';
 const PERSON_B = '01930000-0000-7000-8000-0000000000b1';
+const SCHOOL_A = '01930000-0000-7000-8000-0000000000a2';
+const SCHOOL_B = '01930000-0000-7000-8000-0000000000b2';
 const PLAN_ID = '01930000-0000-7000-8000-0000000000c1';
 
 let admin: Pool;
@@ -63,6 +65,21 @@ async function seedTwoTenants(): Promise<void> {
        VALUES ($1,$2,'মোহাম্মদ করিম','Mohammad Karim') ON CONFLICT (id) DO NOTHING`,
       [pid, tid],
     );
+  }
+
+  // Seed a second table once structure lands, so the cross-tenant assertions
+  // cover more than one table's policy rather than proving `person` alone.
+  if (tenantTables.includes('school')) {
+    for (const [sid, tid] of [
+      [SCHOOL_A, TENANT_A],
+      [SCHOOL_B, TENANT_B],
+    ] as const) {
+      await admin.query(
+        `INSERT INTO school (id, tenant_id, name_bn, name_en)
+         VALUES ($1,$2,'পরীক্ষা বিদ্যালয়','Test School') ON CONFLICT (id) DO NOTHING`,
+        [sid, tid],
+      );
+    }
   }
 }
 
