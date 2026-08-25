@@ -5,8 +5,9 @@ on:
     branches: [main]
   pull_request:
 
-# Phase 1 is architecture only. As code lands, add typecheck / test / build
-# jobs here and make them required checks on main — see CONTRIBUTING.md.
+env:
+  NODE_VERSION: '24'
+
 jobs:
   docs:
     name: Documentation integrity
@@ -15,3 +16,71 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check links, ADR index and secret leakage
         run: bash ./scripts/check-docs.sh
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  lint:
+    name: Lint and architecture boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sm_saas
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_MIGRATOR: postgres://postgres:postgres@localhost:5432/sm_saas
+      DATABASE_URL_APP: postgres://postgres:postgres@localhost:5432/sm_saas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Migrate
+        run: pnpm db:migrate
+
+      # A separate step BEFORE the main suite, so a tenancy regression is the
+      # first thing that fails and is unmistakable in the log rather than one
+      # red dot among four hundred (§11.6).
+      - name: Tenant isolation suite
+        run: pnpm test:isolation
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+      # A seed that is not idempotent breaks the second deploy, not the first.
+      - name: Migrations are idempotent
+        run: pnpm db:migrate

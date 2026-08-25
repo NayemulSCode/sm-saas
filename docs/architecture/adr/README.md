@@ -42,6 +42,7 @@ or lacks a `Revisit when` section.
 | [0028](0028-testing-strategy.md) | Bottom-heavy tests, with five non-negotiable suites | Accepted | A defect class none of the five would have caught |
 | [0029](0029-impersonation-controls.md) | Impersonation is time-limited, reasoned, and visible to the tenant | Accepted | A tenant requires prior consent per session |
 | [0030](0030-manual-first-saas-billing.md) | Manual-first BDT billing; suspension never denies student records | Accepted | > 50 tenants, or > half a day of monthly reconciliation |
+| [0031](0031-dependency-version-policy.md) | Pin to latest stable at scaffold time, with a documented upgrade policy | Accepted | `typescript-eslint` ships TS 7 support; a new Node LTS line |
 
 ## The three triggers most likely to fire first
 

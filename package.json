@@ -1,0 +1,60 @@
+{
+  "name": "sm-saas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant School Management SaaS for Bangladesh",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker:dev": "tsx watch src/worker/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:isolation": "vitest run src/db/__tests__/isolation.test.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:check": "drizzle-kit check",
+    "seed": "tsx scripts/seed-platform.ts",
+    "check:docs": "bash ./scripts/check-docs.sh",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1117.0",
+    "@aws-sdk/s3-request-presigner": "3.1117.0",
+    "@node-rs/argon2": "2.1.0",
+    "drizzle-orm": "0.45.2",
+    "lru-cache": "11.5.2",
+    "next": "16.3.2",
+    "next-intl": "4.13.7",
+    "pg": "8.23.0",
+    "pg-boss": "12.28.0",
+    "pino": "10.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "ulidx": "2.4.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.3.0",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "drizzle-kit": "0.31.10",
+    "eslint": "10.9.1",
+    "eslint-plugin-boundaries": "7.2.0",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.12",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}
