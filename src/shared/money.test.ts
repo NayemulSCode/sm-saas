@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Money, toBanglaDigits, toLatinDigits } from './money.js';
+import { Money, toBanglaDigits, toLatinDigits } from './money';
 
 const bdt = (minor: bigint) => Money.fromMinor(minor);
 const sum = (xs: readonly { minor: bigint }[]) => xs.reduce((s, x) => s + x.minor, 0n);

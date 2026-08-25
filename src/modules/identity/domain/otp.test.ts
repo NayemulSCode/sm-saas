@@ -6,7 +6,7 @@ import {
   verifyChallenge,
   shouldReuseChallenge,
   type OtpChallengeState,
-} from './otp.js';
+} from './otp';
 
 const NOW = new Date('2027-01-15T08:30:00Z');
 const eq = (a: string, b: string) => a === b;

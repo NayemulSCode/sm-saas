@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { codeHasher, tokenGenerator, randomSource, passwordHasher } from './crypto.js';
-import { generateCode, OTP } from '../domain/otp.js';
+import { codeHasher, tokenGenerator, randomSource, passwordHasher } from './crypto';
+import { generateCode, OTP } from '../domain/otp';
 
 beforeAll(() => {
   // passwordHasher reads ARGON2_MEMORY_KIB from the validated environment.

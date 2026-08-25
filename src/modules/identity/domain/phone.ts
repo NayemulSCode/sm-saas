@@ -10,10 +10,10 @@
  * that can be bypassed.
  */
 
-import { type Result, ok, err } from '../../../shared/result.js';
+import { type Result, ok, err } from '../../../shared/result';
 // Digit folding is generic text handling; it lives in money.ts because that is
 // where it was first needed (parsing a typed amount).
-import { toLatinDigits } from '../../../shared/money.js';
+import { toLatinDigits } from '../../../shared/money';
 
 export type CredentialKind = 'phone' | 'email';
 

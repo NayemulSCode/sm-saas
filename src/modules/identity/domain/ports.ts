@@ -7,9 +7,9 @@
  * cryptography.
  */
 
-import type { AccountId, MembershipId, PersonId, TenantId } from '../../../shared/ids.js';
-import type { Permission } from '../../../shared/permissions.js';
-import type { Scope } from '../../../shared/auth-context.js';
+import type { AccountId, MembershipId, PersonId, TenantId } from '../../../shared/ids';
+import type { Permission } from '../../../shared/permissions';
+import type { Scope } from '../../../shared/auth-context';
 
 export interface PasswordHasher {
   hash(plain: string): Promise<string>;

@@ -7,8 +7,8 @@
  */
 
 import { bigint, customType, timestamp } from 'drizzle-orm/pg-core';
-import { type Id, Ids } from '../shared/ids.js';
-import { LocalDate } from '../shared/date.js';
+import { type Id, Ids } from '../shared/ids';
+import { LocalDate } from '../shared/date';
 
 /**
  * Money — bigint minor units. Mode 'bigint', NEVER 'number'.

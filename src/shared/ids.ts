@@ -11,7 +11,7 @@
  */
 
 import { monotonicFactory, decodeTime } from 'ulidx';
-import { type Result, ok, err } from './result.js';
+import { type Result, ok, err } from './result';
 
 /**
  * Monotonic, not the plain factory.

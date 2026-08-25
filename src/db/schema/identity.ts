@@ -7,8 +7,8 @@
 
 import { boolean, customType, index, integer, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { instant, ulidCol } from '../types.js';
-import type { Scope } from '../../shared/auth-context.js';
+import { instant, ulidCol } from '../types';
+import type { Scope } from '../../shared/auth-context';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => 'bytea',

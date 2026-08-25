@@ -5,25 +5,25 @@
  * account's tenants are discovered. Runs on the platform pool.
  */
 
-import { withPlatform } from '../../../db/rls.js';
+import { withPlatform } from '../../../db/rls';
 import {
   type Result,
   ok,
   err,
   type DomainError,
   defineErrors,
-} from '../../../shared/result.js';
-import { normaliseIdentifier } from '../domain/phone.js';
-import { verifyChallenge } from '../domain/otp.js';
-import { initialExpiry, type SessionAudience } from '../domain/session.js';
-import type { CodeHasher, TokenGenerator } from '../domain/ports.js';
+} from '../../../shared/result';
+import { normaliseIdentifier } from '../domain/phone';
+import { verifyChallenge } from '../domain/otp';
+import { initialExpiry, type SessionAudience } from '../domain/session';
+import type { CodeHasher, TokenGenerator } from '../domain/ports';
 import {
   accounts,
   credentials,
   memberships,
   otpChallenges,
   sessions,
-} from '../infrastructure/repositories.js';
+} from '../infrastructure/repositories';
 
 /**
  * One error for every failed-login reason.

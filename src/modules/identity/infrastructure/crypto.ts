@@ -13,8 +13,8 @@ import type {
   PasswordHasher,
   RandomSource,
   TokenGenerator,
-} from '../domain/ports.js';
-import { env } from '../../../config/env.js';
+} from '../domain/ports';
+import { env } from '../../../config/env';
 
 /**
  * Argon2id at the OWASP baseline, with memory deliberately modest.
