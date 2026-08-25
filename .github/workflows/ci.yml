@@ -121,6 +121,18 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+      # HTTP-level: a real production build, a real server, real cookies.
+      # The only place the transport layer is actually exercised — envelope,
+      # error→status mapping, HttpOnly cookie, rate limiter.
+      - name: Build for HTTP tests
+        run: pnpm build
+        env:
+          APP_URL: http://localhost:3123
+          PLATFORM_HOST: admin.localhost
+
+      - name: HTTP route tests
+        run: pnpm test:http
+
       # A seed that is not idempotent breaks the second deploy, not the first.
       - name: Migrations are idempotent
         run: pnpm db:migrate

@@ -21,6 +21,7 @@
     "test:watch": "vitest",
     "test:isolation": "vitest run --config vitest.isolation.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:http": "vitest run --config vitest.http.config.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:check": "drizzle-kit check",
     "db:roles:dev": "tsx scripts/dev-set-role-passwords.ts",
