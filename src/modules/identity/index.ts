@@ -86,3 +86,18 @@ export type {
 export { LOCKOUT, gateLogin, hasPassword } from './domain/password';
 export { PasswordLoginSchema } from './application/dto';
 export type { PasswordLoginDto } from './application/dto';
+
+// ── staff invitations ───────────────────────────────────────────────────────
+export { inviteStaff, revokeInvite, InviteErrors } from './application/inviteStaff';
+export type {
+  InviteStaffInput,
+  InviteStaffDeps,
+  InviteStaffResult,
+} from './application/inviteStaff';
+export { acceptInvite, AcceptInviteErrors } from './application/acceptInvite';
+export type {
+  AcceptInviteInput,
+  AcceptInviteDeps,
+  AcceptInviteResult,
+} from './application/acceptInvite';
+export { INVITE, verifyInvite, shouldSetPassword } from './domain/invite';
