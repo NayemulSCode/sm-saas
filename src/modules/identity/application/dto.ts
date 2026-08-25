@@ -51,3 +51,25 @@ export const PasswordLoginSchema = z.object({
   password: z.string().min(8).max(200),
 });
 export type PasswordLoginDto = z.infer<typeof PasswordLoginSchema>;
+
+export const InviteStaffSchema = z.object({
+  personId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'),
+  identifier: zIdentifier,
+  roleIds: z
+    .array(z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'))
+    .max(10)
+    .default([]),
+});
+export type InviteStaffDto = z.infer<typeof InviteStaffSchema>;
+
+export const AcceptInviteSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(8).max(200),
+});
+export type AcceptInviteDto = z.infer<typeof AcceptInviteSchema>;
+
+export const RevokeInviteSchema = z.object({
+  // Revocation is audited, so the reason is required rather than optional.
+  reason: z.string().min(3).max(280),
+});
+export type RevokeInviteDto = z.infer<typeof RevokeInviteSchema>;

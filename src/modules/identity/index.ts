@@ -101,3 +101,8 @@ export type {
   AcceptInviteResult,
 } from './application/acceptInvite';
 export { INVITE, verifyInvite, shouldSetPassword } from './domain/invite';
+export { resolveAuthContext, AuthContextErrors } from './application/resolveAuthContext';
+export type { AuthContextDeps } from './application/resolveAuthContext';
+export { mergeScopes } from './domain/scope';
+export { InviteStaffSchema, AcceptInviteSchema, RevokeInviteSchema } from './application/dto';
+export type { InviteStaffDto, AcceptInviteDto, RevokeInviteDto } from './application/dto';
