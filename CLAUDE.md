@@ -5,19 +5,26 @@ anything; it is the short version of decisions that are expensive to rediscover.
 
 ## Where you are
 
-**Phase 1 — architecture.** There is deliberately **no application code** in this
-repository yet. Phase 1 produces the architecture, Phase 2 the engineering
-specification, Phase 3 the implementation.
+**Phase 1 complete. Phase 2A complete.** There is deliberately **no application
+code** in this repository yet. Phase 1 produced the architecture, Phase 2 the
+engineering specification, Phase 3 the implementation.
 
 Do not scaffold an app, add a `package.json`, or write production code unless
 the current task explicitly says Phase 3 has started.
 
 | Need | Read |
 |---|---|
+| Every settled decision, in one page | [`docs/architecture/phase-1c/46-decision-summary.md`](docs/architecture/phase-1c/46-decision-summary.md) |
 | The whole design | [`docs/architecture/README.md`](docs/architecture/README.md) |
+| **What Phase 3a is built from** | [`docs/engineering/README.md`](docs/engineering/README.md) |
 | Why something is the way it is | [`docs/architecture/adr/README.md`](docs/architecture/adr/README.md) |
 | What is assumed rather than known | [`docs/architecture/phase-1a/13-open-questions.md`](docs/architecture/phase-1a/13-open-questions.md) |
 | The budget/team reality behind every trade-off | [`docs/architecture/CONSTRAINTS.md`](docs/architecture/CONSTRAINTS.md) |
+
+When Phase 3a starts, the first commit is specified in
+[`docs/engineering/phase-2a/11-scaffolding-lint-ci.md`](docs/engineering/phase-2a/11-scaffolding-lint-ci.md).
+The isolation harness and migrations `0001`–`0002` come **before** the first
+tenant table.
 
 ## The constraint that decides most arguments
 

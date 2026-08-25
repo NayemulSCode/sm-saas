@@ -46,6 +46,12 @@ Read in order; each builds on the last.
 | 27 | [Mobile and offline](phase-1b/27-mobile-offline.md) | PWA rationale, the outbox, conflict rules, the device clock problem |
 | 28 | [Accessibility](phase-1b/28-accessibility.md) | WCAG 2.2 AA, keyboard grids, two scripts, CI verification |
 
+## Phase 2 — engineering specification
+
+Lives in [`docs/engineering/`](../engineering/README.md). Phase 2A is complete:
+schema DDL with RLS, the generated isolation harness, API contracts and DTOs,
+auth and session mechanics, the permission vocabulary, migrations and seed.
+
 ## Spikes — questions answered by running them
 
 | Spike | Question | Outcome |
