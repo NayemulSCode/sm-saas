@@ -140,8 +140,13 @@ revisit triggers and secret-shaped files. Both run in CI on every push and PR.
 The tenant isolation suite needs a real PostgreSQL and runs as its own CI step:
 
 ```bash
-pnpm db:migrate && pnpm test:isolation
+pnpm db:migrate && pnpm seed && pnpm test:isolation
 ```
+
+`pnpm seed` writes the `permission` vocabulary and `role_template` rows from
+`src/shared/permissions.ts`. It is not optional: `role_permission.permission_key`
+has a foreign key to `permission(key)`, so on an unseeded database no permission
+can be granted and every authorised endpoint answers 403.
 
 ## Things that look like bugs but are not
 

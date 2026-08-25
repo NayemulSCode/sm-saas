@@ -100,6 +100,13 @@ jobs:
       - name: Migrate
         run: pnpm db:migrate
 
+      # The permission vocabulary and role templates are reference data derived
+      # from src/shared/permissions.ts. role_permission has a foreign key to
+      # permission(key), so without this step no permission can be granted at
+      # all and every authorised endpoint answers 403.
+      - name: Seed platform reference data
+        run: pnpm seed
+
       # Roles are created by 0001 without passwords — a migration is checked
       # into Git and a credential must not be. Dev and CI set them here;
       # production uses scripts/provision-host.sh.
