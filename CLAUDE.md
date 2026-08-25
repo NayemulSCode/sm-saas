@@ -9,8 +9,13 @@ anything; it is the short version of decisions that are expensive to rediscover.
 code** in this repository yet. Phase 1 produced the architecture, Phase 2 the
 engineering specification, Phase 3 the implementation.
 
-Do not scaffold an app, add a `package.json`, or write production code unless
-the current task explicitly says Phase 3 has started.
+Build on the scaffold; do not re-scaffold. Before adding anything, run
+`pnpm verify` (typecheck + lint + tests) and keep it green.
+
+**Versions are governed by [ADR-0031](docs/architecture/adr/0031-dependency-version-policy.md)**,
+not by the version numbers written in Phase 1 and Phase 2 prose. Pin exact
+versions — no `^`, no `~`. TypeScript is deliberately held at 6.x; the reason is
+in that ADR.
 
 | Need | Read |
 |---|---|
@@ -22,10 +27,25 @@ the current task explicitly says Phase 3 has started.
 | **Long-lead items nobody has started** | [`docs/EXTERNAL-ACTIONS.md`](docs/EXTERNAL-ACTIONS.md) — check at the start of every phase |
 | The budget/team reality behind every trade-off | [`docs/architecture/CONSTRAINTS.md`](docs/architecture/CONSTRAINTS.md) |
 
-When Phase 3a starts, the first commit is specified in
+The scaffold follows
 [`docs/engineering/phase-2a/11-scaffolding-lint-ci.md`](docs/engineering/phase-2a/11-scaffolding-lint-ci.md).
-The isolation harness and migrations `0001`–`0002` come **before** the first
-tenant table.
+Migrations `0001`–`0002` and the isolation harness exist **before** the first
+tenant table — migration `0005` (`person`) is the milestone the suite must be
+green for.
+
+## Guards that are already live
+
+Each one has been verified by deliberately violating it, per §11.7:
+
+| Guard | Breaks on |
+|---|---|
+| `boundaries/dependencies` | Any import crossing a layer the policy forbids |
+| `no-restricted-imports` in `domain/**` | `domain/` importing Next, React, Drizzle, `pg`, an SDK or `db/**` |
+| `no-restricted-imports` outside `db/**` | Importing `db/pool` instead of using `withTenant` |
+| `no-restricted-syntax` | Arithmetic on `Money.minor` outside `shared/money.ts` |
+| Isolation suite | A `tenant_id` table without RLS enabled, forced and a `WITH CHECK` policy |
+
+If a guard blocks you, the guard is usually right.
 
 ## The constraint that decides most arguments
 
@@ -57,7 +77,7 @@ These outrank performance, elegance and convenience.
 4. **Every mutation is audited** — actor, tenant, timestamp, before/after,
    reason. No PII values in logs; ids only.
 
-## Rules that will be enforced by lint in Phase 3
+## Rules enforced by lint today
 
 - `modules/*/domain/` imports **nothing** from `next/*`, Drizzle, or any SDK.
   Domain logic must be unit-testable with no database.
@@ -110,11 +130,18 @@ breaks siblings, shared handsets and separated parents.
 ## Verify before you commit
 
 ```bash
-bash ./scripts/check-docs.sh
+pnpm verify && bash ./scripts/check-docs.sh
 ```
 
-Checks internal links, ADR index drift, missing revisit triggers, and
-secret-shaped files. It runs in CI on every push and PR.
+`pnpm verify` runs typecheck, lint (including the architecture boundaries) and
+the unit tests. `check-docs.sh` checks internal links, ADR index drift, missing
+revisit triggers and secret-shaped files. Both run in CI on every push and PR.
+
+The tenant isolation suite needs a real PostgreSQL and runs as its own CI step:
+
+```bash
+pnpm db:migrate && pnpm test:isolation
+```
 
 ## Things that look like bugs but are not
 

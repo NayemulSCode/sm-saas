@@ -1,0 +1,127 @@
+/**
+ * AuthContext — the object every use case takes as its first argument.
+ *
+ * It is built in middleware from VERIFIED memberships and never from request
+ * input. That is the single reason `tenantIds` can be trusted enough to drive
+ * the RLS session variable (§5.4).
+ */
+
+import type {
+  AccountId,
+  CampusId,
+  ClassLevelId,
+  MembershipId,
+  PersonId,
+  SectionId,
+  SessionId,
+  SubjectId,
+  TenantId,
+} from './ids.js';
+import type { Permission } from './permissions.js';
+import { isWritePermission } from './permissions.js';
+
+export interface Scope {
+  /** An absent key means unrestricted WITHIN the tenant. Never across tenants. */
+  readonly campusIds?: readonly CampusId[];
+  readonly classIds?: readonly ClassLevelId[];
+  /** Present but empty denies everything — a misconfigured role fails closed. */
+  readonly sectionIds?: readonly SectionId[];
+  readonly subjectIds?: readonly SubjectId[];
+}
+
+export interface Impersonation {
+  readonly operatorId: AccountId;
+  readonly reason: string;
+  readonly expiresAt: Date;
+  readonly readOnly: boolean;
+}
+
+export interface AuthContext {
+  readonly accountId: AccountId;
+  readonly sessionId: SessionId;
+
+  /**
+   * Normally exactly one. Several ONLY for an organization administrator
+   * viewing across their own schools, derived from verified memberships.
+   */
+  readonly tenantIds: readonly TenantId[];
+  readonly activeTenantId: TenantId;
+
+  readonly personId: PersonId;
+  readonly membershipId: MembershipId;
+  readonly permissions: ReadonlySet<Permission>;
+  readonly scope: Scope;
+
+  readonly locale: 'en' | 'bn';
+  readonly requestId: string;
+
+  /** A suspended tenant resolves but cannot write (invariant 14). */
+  readonly readOnly: boolean;
+
+  readonly impersonation?: Impersonation;
+}
+
+export type ScopeTarget = {
+  readonly campusId?: CampusId;
+  readonly classId?: ClassLevelId;
+  readonly sectionId?: SectionId;
+  readonly subjectId?: SubjectId;
+};
+
+export class AuthorizationError extends Error {
+  constructor(
+    readonly permission: Permission,
+    readonly kind: 'forbidden' | 'out_of_scope' | 'read_only',
+  ) {
+    super(`Authorization failed (${kind}) for ${permission}`);
+    this.name = 'AuthorizationError';
+  }
+}
+
+function inScope(scope: Scope, target: ScopeTarget): boolean {
+  // A present-but-empty list denies. An absent list is unrestricted.
+  const check = <T>(allowed: readonly T[] | undefined, value: T | undefined): boolean => {
+    if (allowed === undefined) return true;
+    if (value === undefined) return false;
+    return allowed.includes(value);
+  };
+
+  return (
+    check(scope.campusIds, target.campusId) &&
+    check(scope.classIds, target.classId) &&
+    check(scope.sectionIds, target.sectionId) &&
+    check(scope.subjectIds, target.subjectId)
+  );
+}
+
+/**
+ * Called by EVERY use case. Asserts, so control flow after it is typed as
+ * authorized. A lint rule flags exported use cases whose body lacks the call.
+ */
+export function authorize(
+  ctx: AuthContext,
+  permission: Permission,
+  target?: ScopeTarget,
+): void {
+  if (ctx.readOnly && isWritePermission(permission)) {
+    throw new AuthorizationError(permission, 'read_only');
+  }
+  if (ctx.impersonation?.readOnly === true && isWritePermission(permission)) {
+    throw new AuthorizationError(permission, 'read_only');
+  }
+  if (!ctx.permissions.has(permission)) {
+    throw new AuthorizationError(permission, 'forbidden');
+  }
+  if (target !== undefined && !inScope(ctx.scope, target)) {
+    throw new AuthorizationError(permission, 'out_of_scope');
+  }
+}
+
+export function can(ctx: AuthContext, permission: Permission, target?: ScopeTarget): boolean {
+  try {
+    authorize(ctx, permission, target);
+    return true;
+  } catch {
+    return false;
+  }
+}
