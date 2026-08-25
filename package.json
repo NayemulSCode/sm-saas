@@ -24,6 +24,7 @@
     "db:check": "drizzle-kit check",
     "db:roles:dev": "tsx scripts/dev-set-role-passwords.ts",
     "seed": "tsx scripts/seed-platform.ts",
+    "check:bundle": "tsx scripts/check-bundle-budget.ts",
     "check:docs": "bash ./scripts/check-docs.sh",
     "verify": "pnpm typecheck && pnpm lint && pnpm test"
   },
