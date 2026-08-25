@@ -21,10 +21,50 @@ const APP_URL = process.env.DATABASE_URL_APP;
 
 const TENANT_A = '01930000-0000-7000-8000-00000000000a';
 const TENANT_B = '01930000-0000-7000-8000-00000000000b';
+const PERSON_A = '01930000-0000-7000-8000-0000000000a1';
+const PERSON_B = '01930000-0000-7000-8000-0000000000b1';
+const PLAN_ID = '01930000-0000-7000-8000-0000000000c1';
 
 let admin: Pool;
 let app: Pool;
 let tenantTables: string[] = [];
+
+/**
+ * Two tenants, always. A single-tenant fixture makes cross-tenant bugs
+ * invisible — the suite needs a second tenant to leak INTO, or every
+ * assertion below passes trivially while proving nothing.
+ *
+ * Seeded as the superuser, which bypasses RLS by design. Everything the suite
+ * then asserts runs as sm_app.
+ */
+async function seedTwoTenants(): Promise<void> {
+  await admin.query(
+    `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
+     VALUES ($1,'isolation-test','পরীক্ষা','Test',0,'monthly')
+     ON CONFLICT (id) DO NOTHING`,
+    [PLAN_ID],
+  );
+  for (const [tid, slug] of [
+    [TENANT_A, 'isolation-a'],
+    [TENANT_B, 'isolation-b'],
+  ] as const) {
+    await admin.query(
+      `INSERT INTO tenant (id, slug, name_bn, name_en, plan_id)
+       VALUES ($1,$2,'পরীক্ষা','Test',$3) ON CONFLICT (id) DO NOTHING`,
+      [tid, slug, PLAN_ID],
+    );
+  }
+  for (const [pid, tid] of [
+    [PERSON_A, TENANT_A],
+    [PERSON_B, TENANT_B],
+  ] as const) {
+    await admin.query(
+      `INSERT INTO person (id, tenant_id, name_bn, name_en)
+       VALUES ($1,$2,'মোহাম্মদ করিম','Mohammad Karim') ON CONFLICT (id) DO NOTHING`,
+      [pid, tid],
+    );
+  }
+}
 
 beforeAll(async () => {
   if (!MIGRATOR_URL || !APP_URL) {
@@ -47,6 +87,8 @@ beforeAll(async () => {
     ORDER  BY c.relname
   `);
   tenantTables = rows.map((r) => r.relname);
+
+  if (tenantTables.includes('person')) await seedTwoTenants();
 });
 
 afterAll(async () => {
@@ -197,6 +239,74 @@ describe('behavioural: no tenant table leaks', () => {
         );
         expect(rows[0]?.n, `${table} leaked tenant B rows to tenant A`).toBe('0');
       }
+      await c.query('ROLLBACK');
+    } finally {
+      c.release();
+    }
+  });
+
+  // The assertion above is only meaningful if tenant B's rows actually exist
+  // and are actually invisible. This proves the fixture is real.
+  it('shows tenant A its OWN row while tenant B holds one too', async () => {
+    const seen = async (tenant: string): Promise<string | undefined> => {
+      const c = await app.connect();
+      try {
+        await c.query('BEGIN');
+        await c.query(`SELECT set_config('app.tenant_ids', $1, true)`, [tenant]);
+        const { rows } = await c.query<{ n: string }>(
+          'SELECT count(*)::text AS n FROM person',
+        );
+        await c.query('ROLLBACK');
+        return rows[0]?.n;
+      } finally {
+        c.release();
+      }
+    };
+
+    expect(await seen(TENANT_A)).toBe('1');
+    expect(await seen(TENANT_B)).toBe('1');
+
+    // And the superuser, bypassing RLS, sees both — so the rows are genuinely
+    // there and RLS is what is hiding them.
+    const { rows } = await admin.query<{ n: string }>(
+      'SELECT count(*)::text AS n FROM person WHERE tenant_id = ANY($1::uuid[])',
+      [[TENANT_A, TENANT_B]],
+    );
+    expect(rows[0]?.n).toBe('2');
+  });
+
+  // USING alone filters reads but still permits writing a row INTO another
+  // tenant. This is what WITH CHECK is for.
+  it('refuses to write a row into another tenant', async () => {
+    const c = await app.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.tenant_ids', $1, true)`, [TENANT_A]);
+      await expect(
+        c.query(
+          `INSERT INTO person (id, tenant_id, name_bn, name_en)
+           VALUES (gen_random_uuid(), $1, 'অনুপ্রবেশ', 'Intruder')`,
+          [TENANT_B],
+        ),
+      ).rejects.toThrow(/row-level security/i);
+      await c.query('ROLLBACK');
+    } finally {
+      c.release();
+    }
+  });
+
+  // Forgetting withTenant() must be harmless, not catastrophic.
+  it('cannot insert at all with no tenant context', async () => {
+    const c = await app.connect();
+    try {
+      await c.query('BEGIN');
+      await expect(
+        c.query(
+          `INSERT INTO person (id, tenant_id, name_bn, name_en)
+           VALUES (gen_random_uuid(), $1, 'অনুপ্রবেশ', 'Intruder')`,
+          [TENANT_A],
+        ),
+      ).rejects.toThrow(/row-level security/i);
       await c.query('ROLLBACK');
     } finally {
       c.release();

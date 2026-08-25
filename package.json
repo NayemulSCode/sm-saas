@@ -19,9 +19,10 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:isolation": "vitest run src/db/__tests__/isolation.test.ts",
+    "test:isolation": "vitest run --config vitest.isolation.config.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:check": "drizzle-kit check",
+    "db:roles:dev": "tsx scripts/dev-set-role-passwords.ts",
     "seed": "tsx scripts/seed-platform.ts",
     "check:docs": "bash ./scripts/check-docs.sh",
     "verify": "pnpm typecheck && pnpm lint && pnpm test"

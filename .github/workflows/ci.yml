@@ -58,8 +58,13 @@ jobs:
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
+      # The migrator is a superuser: migration 0001 creates the roles.
       DATABASE_URL_MIGRATOR: postgres://postgres:postgres@localhost:5432/sm_saas
-      DATABASE_URL_APP: postgres://postgres:postgres@localhost:5432/sm_saas
+      # The app connects as sm_app — NOT as a superuser. A superuser bypasses
+      # row-level security entirely, so an isolation suite run as `postgres`
+      # would pass while proving nothing.
+      DATABASE_URL_APP: postgres://sm_app:devpassword@localhost:5432/sm_saas
+      DEV_DB_PASSWORD: devpassword
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -71,6 +76,12 @@ jobs:
 
       - name: Migrate
         run: pnpm db:migrate
+
+      # Roles are created by 0001 without passwords — a migration is checked
+      # into Git and a credential must not be. Dev and CI set them here;
+      # production uses scripts/provision-host.sh.
+      - name: Give the least-privilege roles a password (dev/CI only)
+        run: pnpm db:roles:dev
 
       # A separate step BEFORE the main suite, so a tenancy regression is the
       # first thing that fails and is unmistakable in the log rather than one

@@ -10,8 +10,20 @@
  * before any of it is written — the import staging flow depends on it.
  */
 
-import { ulid, decodeTime } from 'ulidx';
+import { monotonicFactory, decodeTime } from 'ulidx';
 import { type Result, ok, err } from './result.js';
+
+/**
+ * Monotonic, not the plain factory.
+ *
+ * Plain `ulid()` draws a fresh random component every call, so two ids created
+ * in the SAME millisecond have no defined order. ADR-0016 chose ULIDs precisely
+ * for time-ordered inserts — keeping `attendance` and `audit_log` writes at the
+ * right edge of the B-tree — and a bulk import creates thousands of ids per
+ * millisecond. The monotonic factory increments the random component within a
+ * millisecond, so ordering is strict rather than merely millisecond-granular.
+ */
+const nextUlid = monotonicFactory();
 
 declare const brand: unique symbol;
 
@@ -47,7 +59,7 @@ const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 export const Ids = {
   generate<T extends string>(): Id<T> {
-    return ulid() as Id<T>;
+    return nextUlid() as Id<T>;
   },
 
   parse<T extends string>(input: string): Result<Id<T>, IdError> {

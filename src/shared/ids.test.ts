@@ -13,12 +13,20 @@ describe('Ids', () => {
   });
 
   // ULIDs are time-ordered, which is what keeps inserts at the right edge of
-  // the B-tree on attendance and audit_log (ADR-0016).
-  it('sorts lexicographically in creation order', () => {
+  // the B-tree on attendance and audit_log (ADR-0016). The MONOTONIC factory
+  // makes this strict even within a single millisecond — a bulk import creates
+  // thousands of ids per millisecond, and plain ulid() would not order them.
+  it('sorts lexicographically in creation order, strictly', () => {
+    const ids = Array.from({ length: 5000 }, () => Ids.generate<'student'>());
+    const sorted = [...ids].sort();
+    expect(sorted).toEqual(ids);
+  });
+
+  it('is strictly increasing for ids created in the same millisecond', () => {
     const a = Ids.generate<'student'>();
     const b = Ids.generate<'student'>();
-    const sorted = [b, a].sort();
-    expect(sorted[0] === a || a === b).toBe(true);
+    expect(Ids.timeOf(a).getTime()).toBe(Ids.timeOf(b).getTime());
+    expect(a < b).toBe(true);
   });
 
   it('round-trips through the uuid representation losslessly', () => {
