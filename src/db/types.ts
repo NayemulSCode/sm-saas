@@ -6,8 +6,8 @@
  * instant, and an id that fits any parameter.
  */
 
-import { bigint, customType, timestamp, uuid } from 'drizzle-orm/pg-core';
-import type { Id } from '../shared/ids.js';
+import { bigint, customType, timestamp } from 'drizzle-orm/pg-core';
+import { type Id, Ids } from '../shared/ids.js';
 import { LocalDate } from '../shared/date.js';
 
 /**
@@ -32,8 +32,24 @@ export const localDate = customType<{ data: LocalDate; driverData: string }>({
   },
 });
 
-/** Branded ULID stored as `uuid`. */
-export const ulidCol = <T extends string>(name: string) => uuid(name).$type<Id<T>>();
+/**
+ * Branded ULID stored as `uuid` — with a real conversion, not just a type cast.
+ *
+ * ADR-0016 keeps ids in Crockford base32 (26 chars) in application code and in
+ * `uuid` (16 bytes) in the database. `uuid().$type<Id<T>>()` only *asserts* the
+ * TypeScript type and passes the value through untouched, so every insert would
+ * hand PostgreSQL a 26-character string for a `uuid` column and be rejected at
+ * runtime. The compiler cannot see that, because `$type` is a pure assertion.
+ *
+ * A `customType` with `toDriver`/`fromDriver` does the base conversion, so
+ * application code lives entirely in ULID space and storage stays 16 bytes.
+ */
+export const ulidCol = <T extends string>(name: string) =>
+  customType<{ data: Id<T>; driverData: string }>({
+    dataType: () => 'uuid',
+    toDriver: (value) => Ids.toUuid(value),
+    fromDriver: (value) => Ids.fromUuid<T>(value),
+  })(name);
 
 /** Instants. `timestamp without time zone` is banned. */
 export const instant = (name: string) =>
