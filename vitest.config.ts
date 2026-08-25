@@ -5,10 +5,16 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
-    // The isolation suite needs a real PostgreSQL and runs as its own CI step,
-    // so a tenancy regression is the first thing that fails and is unmistakable
-    // in the log rather than one red dot among four hundred.
-    exclude: ['node_modules/**', '.next/**', 'src/db/__tests__/**'],
+    // `pnpm test` must run from a fresh clone with NO database. Anything that
+    // needs PostgreSQL lives in its own config and its own CI step:
+    //   - src/db/__tests__/**          the tenancy gate (vitest.isolation.config.ts)
+    //   - **/*.integration.test.ts     module wiring (vitest.integration.config.ts)
+    exclude: [
+      'node_modules/**',
+      '.next/**',
+      'src/db/__tests__/**',
+      'src/**/*.integration.test.ts',
+    ],
     reporters: ['default'],
   },
   resolve: {

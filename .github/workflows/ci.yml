@@ -83,6 +83,10 @@ jobs:
       # row-level security entirely, so an isolation suite run as `postgres`
       # would pass while proving nothing.
       DATABASE_URL_APP: postgres://sm_app:devpassword@localhost:5432/sm_saas
+      # The one role with BYPASSRLS. Login legitimately needs it: it resolves
+      # WHICH tenants an account belongs to, so it cannot run inside a tenant
+      # session (§8.4).
+      DATABASE_URL_PLATFORM: postgres://sm_platform:devpassword@localhost:5432/sm_saas
       DEV_DB_PASSWORD: devpassword
     steps:
       - uses: actions/checkout@v4
@@ -108,8 +112,14 @@ jobs:
       - name: Tenant isolation suite
         run: pnpm test:isolation
 
-      - name: Unit and integration tests
+      - name: Unit tests
         run: pnpm test
+
+      # Real module wiring against a real database. Separate from the unit
+      # suite so `pnpm test` stays runnable from a fresh clone with no
+      # PostgreSQL.
+      - name: Integration tests
+        run: pnpm test:integration
 
       # A seed that is not idempotent breaks the second deploy, not the first.
       - name: Migrations are idempotent
