@@ -146,6 +146,14 @@ describe('OTP login', () => {
   });
 
   it('answers identically for an unknown number, and sends nothing', async () => {
+    // Clear first: the previous test left a live challenge, and requestOtp
+    // correctly REUSES one rather than minting a second code — so without this
+    // the known path would legitimately send nothing and the comparison below
+    // would be measuring the wrong thing.
+    await admin.query('DELETE FROM otp_challenge WHERE credential_id = $1', [
+      uuid(CREDENTIAL),
+    ]);
+
     dispatcher.clear();
     const known = await requestOtp({ identifier: PHONE }, deps);
     const knownSent = dispatcher.sent.length;
