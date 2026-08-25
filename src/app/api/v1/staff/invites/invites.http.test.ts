@@ -40,9 +40,18 @@ const CLERK_ACCOUNT = nid();
 const CLERK_CREDENTIAL = nid();
 const CLERK_MEMBERSHIP = nid();
 
-/** Someone in the OTHER school, to prove revoke cannot reach across tenants. */
+/**
+ * A membership in the OTHER school, belonging to a DIFFERENT account — a real
+ * stranger, not the principal wearing a second hat. Tenant A's principal must
+ * not be able to reach it.
+ *
+ * It also matters that the principal has exactly ONE membership: verifyOtp only
+ * auto-activates a context when there is a single one, and an unactivated
+ * session resolves to NO_ACTIVE_CONTEXT rather than to a tenant.
+ */
 const FOREIGN_MEMBERSHIP = nid();
 const FOREIGN_PERSON = nid();
+const FOREIGN_ACCOUNT = nid();
 
 const PRINCIPAL_ROLE = nid();
 const LIBRARIAN_ROLE = nid();
@@ -146,11 +155,15 @@ beforeAll(async () => {
       [uuid(m), uuid(t), uuid(acc), uuid(p)],
     );
   }
-  // Belongs to tenant B, so tenant A's principal must not be able to touch it.
+  // Belongs to tenant B and to nobody in tenant A.
+  await admin.query(
+    `INSERT INTO account (id, status, locale) VALUES ($1,'active','bn') ON CONFLICT DO NOTHING`,
+    [uuid(FOREIGN_ACCOUNT)],
+  );
   await admin.query(
     `INSERT INTO membership (id, tenant_id, account_id, person_id, status)
      VALUES ($1,$2,$3,$4,'active') ON CONFLICT DO NOTHING`,
-    [uuid(FOREIGN_MEMBERSHIP), uuid(TENANT_B), uuid(ADMIN_ACCOUNT), uuid(FOREIGN_PERSON)],
+    [uuid(FOREIGN_MEMBERSHIP), uuid(TENANT_B), uuid(FOREIGN_ACCOUNT), uuid(FOREIGN_PERSON)],
   );
 
   /*
@@ -276,6 +289,12 @@ describe('POST /staff/invites', () => {
    * looks like a bug to fix rather than a boundary working.
    */
   it('refuses an authenticated caller without membership.manage — 403, not 500', async () => {
+    // The clerk is genuinely signed in with an active context; the only thing
+    // they lack is the permission. Without this the 403 below would also pass
+    // for a session that failed to resolve at all.
+    const me = await fetch(`${server.url}/api/v1/auth/me`, { headers: { cookie: clerk } });
+    expect(me.status).toBe(200);
+
     const person = await newPerson();
 
     const res = await post(
