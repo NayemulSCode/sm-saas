@@ -44,6 +44,8 @@ or lacks a `Revisit when` section.
 | [0030](0030-manual-first-saas-billing.md) | Manual-first BDT billing; suspension never denies student records | Accepted | > 50 tenants, or > half a day of monthly reconciliation |
 | [0031](0031-dependency-version-policy.md) | Pin to latest stable at scaffold time, with a documented upgrade policy | Accepted | `typescript-eslint` ships TS 7 support; a new Node LTS line |
 
+| [0032](0032-composite-tenant-foreign-keys.md) | Composite `(tenant_id, id)` foreign keys between tenant-owned tables | Accepted | A catalogue test guards it; or a legitimate cross-tenant reference appears |
+
 ## The three triggers most likely to fire first
 
 1. **[ADR-0014](0014-defer-redis.md)** — Redis must be added *before* a second

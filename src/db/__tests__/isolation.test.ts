@@ -312,6 +312,38 @@ describe('behavioural: no tenant table leaks', () => {
     }
   });
 
+  /*
+   * PostgreSQL performs foreign-key checks with the privileges of the
+   * REFERENCED table's owner and does not apply row-level security to them.
+   * Without a composite key carrying the tenant, tenant A can therefore create
+   * a row whose FK points into tenant B — an integrity hole that RLS alone
+   * does not close.
+   *
+   * Reads do not leak (the join is RLS-filtered and yields nothing), but
+   * "cross-tenant isolation is structural" has to mean structural.
+   */
+  it('refuses a foreign key pointing into another tenant', async () => {
+    if (!tenantTables.includes('campus') || !tenantTables.includes('school')) return;
+
+    const c = await app.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.tenant_ids', $1, true)`, [TENANT_A]);
+      await expect(
+        c.query(
+          `INSERT INTO campus (id, tenant_id, school_id, name_bn, name_en)
+           VALUES (gen_random_uuid(), $1, $2, 'শাখা', 'Branch')`,
+          [TENANT_A, SCHOOL_B], // tenant A's row, tenant B's school
+        ),
+      ).rejects.toThrow();
+    } finally {
+      // In `finally`, so a failed assertion cannot leave the transaction open
+      // and poison the tests that follow on this pooled connection.
+      await c.query('ROLLBACK').catch(() => undefined);
+      c.release();
+    }
+  });
+
   // Forgetting withTenant() must be harmless, not catastrophic.
   it('cannot insert at all with no tenant context', async () => {
     const c = await app.connect();
