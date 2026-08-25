@@ -32,6 +32,22 @@ export interface CredentialRow {
 }
 
 export const credentials = {
+  async byId(tx: Tx, id: CredentialId): Promise<CredentialRow | undefined> {
+    const [row] = await tx
+      .select({
+        id: credential.id,
+        accountId: credential.accountId,
+        kind: credential.kind,
+        value: credential.value,
+        passwordHash: credential.passwordHash,
+        verifiedAt: credential.verifiedAt,
+      })
+      .from(credential)
+      .where(eq(credential.id, id))
+      .limit(1);
+    return row;
+  },
+
   async byIdentifier(
     tx: Tx,
     kind: 'phone' | 'email',
