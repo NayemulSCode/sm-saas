@@ -50,3 +50,16 @@ export {
   tokenGenerator,
   randomSource,
 } from './infrastructure/crypto.js';
+
+// ── session and context switching ───────────────────────────────────────────
+export {
+  resolveSession,
+  listContexts,
+  switchContext,
+  SessionErrors,
+} from './application/switchContext.js';
+export type {
+  SessionDeps,
+  AvailableContext,
+  ResolvedSession,
+} from './application/switchContext.js';

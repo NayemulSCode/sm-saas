@@ -14,9 +14,12 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => 'bytea',
 });
 
-/** Standard column set (§3.1), applied by app.make_tenant_table in SQL. */
-const tenantColumns = {
-  id: ulidCol('id').primaryKey(),
+/** Standard column set (§3.1), applied by app.make_tenant_table in SQL.
+ *  Generic in the brand so each table keeps its own `Id<T>` rather than
+ *  collapsing to `Id<string>` — which is what makes passing a StudentId where
+ *  an EnrolmentId belongs a compile error (ADR-0016). */
+const tenantColumns = <T extends string>() => ({
+  id: ulidCol<T>('id').primaryKey(),
   tenantId: ulidCol<'tenant'>('tenant_id')
     .notNull()
     .default(sql`app.current_tenant_id()`),
@@ -28,7 +31,7 @@ const tenantColumns = {
   deletedBy: ulidCol<'person'>('deleted_by'),
   deleteReason: text('delete_reason'),
   version: integer('version').notNull().default(1),
-};
+});
 
 // ── global identity: no tenant_id, no RLS ───────────────────────────────────
 
@@ -124,7 +127,7 @@ export const otpChallenge = pgTable(
 export const membership = pgTable(
   'membership',
   {
-    ...tenantColumns,
+    ...tenantColumns<'membership'>(),
     accountId: ulidCol<'account'>('account_id').notNull(),
     personId: ulidCol<'person'>('person_id').notNull(),
     status: text('status', { enum: ['active', 'suspended'] })
@@ -140,7 +143,7 @@ export const membership = pgTable(
 export const role = pgTable(
   'role',
   {
-    ...tenantColumns,
+    ...tenantColumns<'role'>(),
     code: text('code').notNull(),
     nameBn: text('name_bn').notNull(),
     nameEn: text('name_en').notNull(),
@@ -152,7 +155,7 @@ export const role = pgTable(
 export const rolePermission = pgTable(
   'role_permission',
   {
-    ...tenantColumns,
+    ...tenantColumns<'rolePermission'>(),
     roleId: ulidCol<'role'>('role_id').notNull(),
     permissionKey: text('permission_key').notNull(),
   },
@@ -162,7 +165,7 @@ export const rolePermission = pgTable(
 export const membershipRole = pgTable(
   'membership_role',
   {
-    ...tenantColumns,
+    ...tenantColumns<'membershipRole'>(),
     membershipId: ulidCol<'membership'>('membership_id').notNull(),
     roleId: ulidCol<'role'>('role_id').notNull(),
     /** Absent key = unrestricted within the tenant; present-but-empty denies. */
