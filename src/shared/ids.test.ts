@@ -22,11 +22,22 @@ describe('Ids', () => {
     expect(sorted).toEqual(ids);
   });
 
-  it('is strictly increasing for ids created in the same millisecond', () => {
-    const a = Ids.generate<'student'>();
-    const b = Ids.generate<'student'>();
-    expect(Ids.timeOf(a).getTime()).toBe(Ids.timeOf(b).getTime());
-    expect(a < b).toBe(true);
+  it('stays strictly increasing WITHIN a millisecond', () => {
+    // Generating 5000 ids always produces many same-millisecond pairs; asserting
+    // that two specific calls share a millisecond would be flaky, because they
+    // can straddle the boundary. Instead: prove same-ms pairs actually occurred
+    // (so the monotonic path is exercised) and that every pair is ordered.
+    const ids = Array.from({ length: 5000 }, () => Ids.generate<'student'>());
+
+    let sameMsPairs = 0;
+    for (let i = 1; i < ids.length; i++) {
+      const prev = ids[i - 1]!;
+      const cur = ids[i]!;
+      expect(prev < cur).toBe(true);
+      if (Ids.timeOf(prev).getTime() === Ids.timeOf(cur).getTime()) sameMsPairs++;
+    }
+
+    expect(sameMsPairs).toBeGreaterThan(0);
   });
 
   it('round-trips through the uuid representation losslessly', () => {

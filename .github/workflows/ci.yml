@@ -43,6 +43,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
 
+  build:
+    name: Build and bundle budget
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: http://localhost:3000
+      PLATFORM_HOST: admin.localhost
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # A budget that is not enforced is a wish. If attendance does not load on
+      # a teacher's phone at 08:30 over 3G, the product does not work (§4.4).
+      - run: pnpm check:bundle
+
   test:
     name: Tests
     runs-on: ubuntu-latest
