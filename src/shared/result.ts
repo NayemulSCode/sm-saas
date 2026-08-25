@@ -55,9 +55,15 @@ export const Result = {
   },
 };
 
-/** HTTP statuses the domain error taxonomy maps to. Mapping happens ONCE, at
- *  the transport edge — the domain layer knows no status codes. */
-export type DomainErrorStatus = 400 | 403 | 404 | 409 | 422 | 423 | 429;
+/**
+ * HTTP statuses the domain error taxonomy maps to (§19.4). Mapping happens
+ * ONCE, at the transport edge — the domain layer knows no status codes.
+ *
+ * 500 is deliberately absent: an unexpected failure is an exception, not a
+ * DomainError. 404 covers "in another tenant" as well as "does not exist",
+ * because 403 would confirm the resource is real (§7.3).
+ */
+export type DomainErrorStatus = 400 | 401 | 403 | 404 | 409 | 422 | 423 | 429;
 
 export interface DomainError {
   /** Stable, machine-readable, never localised. */
