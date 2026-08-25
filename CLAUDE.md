@@ -5,7 +5,7 @@ anything; it is the short version of decisions that are expensive to rediscover.
 
 ## Where you are
 
-**Phase 1 complete. Phase 2A complete.** There is deliberately **no application
+**Phase 1 complete. Phase 2 complete (2A, 2B, 2C).** There is deliberately **no application
 code** in this repository yet. Phase 1 produced the architecture, Phase 2 the
 engineering specification, Phase 3 the implementation.
 

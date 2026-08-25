@@ -6,7 +6,7 @@ secondary schools, Bangla- and English-medium, single-campus and multi-campus.
 Bilingual at launch: **English** (`en`) and **বাংলা** (`bn`, `bn-BD`).
 Currency **BDT**. Platform timezone **Asia/Dhaka**.
 
-> **Status: Phase 1 complete. Phase 2A + 2B complete; 2C follows the pilot.** There is no
+> **Status: Phase 1 complete. Phase 2 complete (2A, 2B, 2C).** There is no
 > application code in this repository yet, by design. Phase 1 produces the
 > architecture; Phase 2 the engineering specification; Phase 3 the
 > implementation.
