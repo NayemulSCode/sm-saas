@@ -14,6 +14,7 @@ export default defineConfig({
       '.next/**',
       'src/db/__tests__/**',
       'src/**/*.integration.test.ts',
+      'src/**/*.http.test.ts',
     ],
     reporters: ['default'],
   },
