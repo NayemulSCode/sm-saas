@@ -75,3 +75,14 @@ export type { OtpRequestDto, OtpVerifyDto, ActivateContextDto } from './applicat
 
 // ── OTP delivery adapter ────────────────────────────────────────────────────
 export { otpDispatcher, mockOtpDispatcher } from './infrastructure/otpDispatcher';
+
+// ── password login (staff) ──────────────────────────────────────────────────
+export { authenticatePassword, PasswordErrors } from './application/authenticatePassword';
+export type {
+  PasswordLoginInput,
+  PasswordLoginDeps,
+  PasswordLoginResult,
+} from './application/authenticatePassword';
+export { LOCKOUT, gateLogin, hasPassword } from './domain/password';
+export { PasswordLoginSchema } from './application/dto';
+export type { PasswordLoginDto } from './application/dto';

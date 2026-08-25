@@ -43,3 +43,11 @@ export const ActivateContextSchema = z.object({
   membershipId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'),
 });
 export type ActivateContextDto = z.infer<typeof ActivateContextSchema>;
+
+export const PasswordLoginSchema = z.object({
+  identifier: zIdentifier,
+  // Bounded to keep an Argon2id verify from being turned into a CPU amplifier:
+  // the hasher's cost is fixed, but a megabyte of input still costs something.
+  password: z.string().min(8).max(200),
+});
+export type PasswordLoginDto = z.infer<typeof PasswordLoginSchema>;
