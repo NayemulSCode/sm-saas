@@ -8,7 +8,7 @@
  */
 
 import { withTenant } from '../../../db/rls';
-import { audit } from '../../../db/audit';
+import { audit, fact } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { authorize, type AuthContext } from '../../../shared/auth-context';
 import type { MembershipId, RoleId } from '../../../shared/ids';
@@ -93,10 +93,10 @@ export async function grantRole(
         reason: input.reason,
         after: {
           roleId: input.roleId,
-          refusedBecause: verdict.kind,
-          // Permission KEYS, not values — they are vocabulary, not personal
-          // data, and knowing which one was refused is the whole point.
-          excess: verdict.kind === 'beyond_own' ? verdict.excess.join(',') : null,
+          // fact(): permission keys and a refusal reason are vocabulary, not
+          // personal data, and they are the whole point of the row.
+          refusedBecause: fact(verdict.kind),
+          excess: verdict.kind === 'beyond_own' ? fact(verdict.excess.join(',')) : null,
         },
       });
 
@@ -124,7 +124,7 @@ export async function grantRole(
       after: {
         membershipRoleId,
         roleId: input.roleId,
-        roleCode: role.code,
+        roleCode: fact(role.code),
         scoped: Object.keys(input.scope ?? {}).length > 0,
       },
     });
@@ -151,7 +151,7 @@ export async function revokeRole(
       await audit(tx, ctx, 'role.grant_refused', input.membershipId, {
         entityType: 'membership',
         reason: input.reason,
-        after: { roleId: input.roleId, refusedBecause: 'self_revoke' },
+        after: { roleId: input.roleId, refusedBecause: fact('self_revoke') },
       });
       return err(GrantErrors.SELF_GRANT_BLOCKED);
     }

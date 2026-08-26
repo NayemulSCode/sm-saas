@@ -9,7 +9,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
-import { recordAuthEvent } from '../../../db/audit';
+import { recordAuthEvent, fact } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { normaliseIdentifier } from '../domain/phone';
 import { gateLogin, hasPassword, shouldLock, lockUntil, LOCKOUT } from '../domain/password';
@@ -191,7 +191,7 @@ export async function authenticatePassword(
           outcome: 'failure',
           identifier: identifier.value.value,
           reason: 'too_many_failed_attempts',
-          detail: { attempts },
+          detail: { attempts: fact(attempts) },
         });
       }
       return err(PasswordErrors.INVALID_CREDENTIALS);
@@ -230,7 +230,11 @@ export async function authenticatePassword(
       outcome: 'success',
       sessionId: created?.id,
       identifier: identifier.value.value,
-      detail: { method: 'password', autoActivated: Boolean(only), contexts: contexts.length },
+      detail: {
+        method: fact('password'),
+        autoActivated: Boolean(only),
+        contexts: fact(contexts.length),
+      },
     });
 
     return ok({

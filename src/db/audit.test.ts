@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  fact,
   redact,
   redactValue,
   changedFields,
@@ -146,5 +147,42 @@ describe('the reason rule', () => {
 
   it('does not demand a reason for ordinary creation', () => {
     expect(REASON_REQUIRED.has('invite.created')).toBe(false);
+  });
+});
+
+describe('fact()', () => {
+  it('passes a declared fact through untouched', () => {
+    expect(redactValue(fact('self_grant'))).toBe('self_grant');
+    expect(redactValue(fact('membership.manage'))).toBe('membership.manage');
+    expect(redactValue(fact(42))).toBe(42);
+    expect(redactValue(fact(false))).toBe(false);
+  });
+
+  it('survives a whole-object redaction alongside redacted siblings', () => {
+    expect(
+      redact({
+        refusedBecause: fact('beyond_own'),
+        excess: fact('fee.waive'),
+        actorName: 'রুমানা হক',
+      }),
+    ).toEqual({
+      refusedBecause: 'beyond_own',
+      excess: 'fee.waive',
+      actorName: REDACTED,
+    });
+  });
+
+  /*
+   * The marker is deliberately not clever. It cannot tell a permission key from
+   * a phone number, and it is not supposed to — a caller writing
+   * fact(person.phone) is visibly wrong in review, which is the whole reason
+   * this is a marker and not a regex over "short enum-looking strings".
+   */
+  it('is a marker, not a judgement — it trusts the caller completely', () => {
+    expect(redactValue(fact('+8801711223344'))).toBe('+8801711223344');
+  });
+
+  it('does not leak through a bare string that merely looks like an enum', () => {
+    expect(redactValue('self_grant')).toBe(REDACTED);
   });
 });

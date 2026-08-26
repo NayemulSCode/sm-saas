@@ -11,7 +11,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
-import { recordAuthEvent, type RequestMeta } from '../../../db/audit';
+import { recordAuthEvent, fact, type RequestMeta } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { evaluateSession, shouldTouchLastSeen, type SessionAudience } from '../domain/session';
 import type { TokenGenerator } from '../domain/ports';
@@ -255,7 +255,7 @@ export async function revokeAllSessions(
       outcome: 'success',
       accountId,
       reason,
-      detail: { count: revoked, all: true },
+      detail: { count: fact(revoked), all: true },
     });
     return revoked;
   });
