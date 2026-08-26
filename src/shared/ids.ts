@@ -29,6 +29,7 @@ declare const brand: unique symbol;
 
 export type Id<T extends string> = string & { readonly [brand]: T };
 
+export type PlanId = Id<'plan'>;
 export type TenantId = Id<'tenant'>;
 export type AccountId = Id<'account'>;
 export type CredentialId = Id<'credential'>;

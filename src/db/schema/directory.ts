@@ -1,22 +1,8 @@
 /** Directory tables (migrations 0005, 0008). All tenant-owned, all RLS. */
-import { integer, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-import { instant, localDate, ulidCol } from '../types';
+import { jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import { localDate, ulidCol } from '../types';
+import { tenantColumns } from './columns';
 
-const tenantColumns = <T extends string>() => ({
-  id: ulidCol<T>('id').primaryKey(),
-  tenantId: ulidCol<'tenant'>('tenant_id')
-    .notNull()
-    .default(sql`app.current_tenant_id()`),
-  createdAt: instant('created_at').notNull().defaultNow(),
-  updatedAt: instant('updated_at').notNull().defaultNow(),
-  createdBy: ulidCol<'person'>('created_by'),
-  updatedBy: ulidCol<'person'>('updated_by'),
-  deletedAt: instant('deleted_at'),
-  deletedBy: ulidCol<'person'>('deleted_by'),
-  deleteReason: text('delete_reason'),
-  version: integer('version').notNull().default(1),
-});
 
 /**
  * A human, as known to ONE school. All personal data lives here, behind RLS —

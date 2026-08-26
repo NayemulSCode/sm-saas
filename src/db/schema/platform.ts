@@ -1,5 +1,5 @@
 /** Platform-scoped tables (migration 0003). No tenant_id, no RLS. */
-import { boolean, char, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, char, integer, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 import { instant, moneyMinor, ulidCol } from '../types';
 
 export const plan = pgTable('plan', {
@@ -39,4 +39,20 @@ export const tenant = pgTable('tenant', {
   purgeAfter: instant('purge_after'),
   createdAt: instant('created_at').notNull().defaultNow(),
   updatedAt: instant('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Roles copied into each tenant at provisioning.
+ *
+ * Templates live OUTSIDE the tenant model rather than as `role` rows with a
+ * NULL tenant_id: a NULL matches no RLS policy, so such a row would be
+ * invisible to everyone including the tenant that needs it (§3.3).
+ */
+export const roleTemplate = pgTable('role_template', {
+  code: text('code').primaryKey(),
+  nameBn: text('name_bn').notNull(),
+  nameEn: text('name_en').notNull(),
+  /** Permission keys. Seeded from src/shared/permissions.ts by `pnpm seed`. */
+  permissions: text('permissions').array().notNull(),
+  sequence: integer('sequence').notNull().default(0),
 });

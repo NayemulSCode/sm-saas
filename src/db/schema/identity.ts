@@ -6,32 +6,14 @@
  */
 
 import { boolean, customType, index, integer, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
 import { instant, ulidCol } from '../types';
+import { tenantColumns } from './columns';
 import type { Scope } from '../../shared/auth-context';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => 'bytea',
 });
 
-/** Standard column set (§3.1), applied by app.make_tenant_table in SQL.
- *  Generic in the brand so each table keeps its own `Id<T>` rather than
- *  collapsing to `Id<string>` — which is what makes passing a StudentId where
- *  an EnrolmentId belongs a compile error (ADR-0016). */
-const tenantColumns = <T extends string>() => ({
-  id: ulidCol<T>('id').primaryKey(),
-  tenantId: ulidCol<'tenant'>('tenant_id')
-    .notNull()
-    .default(sql`app.current_tenant_id()`),
-  createdAt: instant('created_at').notNull().defaultNow(),
-  updatedAt: instant('updated_at').notNull().defaultNow(),
-  createdBy: ulidCol<'person'>('created_by'),
-  updatedBy: ulidCol<'person'>('updated_by'),
-  deletedAt: instant('deleted_at'),
-  deletedBy: ulidCol<'person'>('deleted_by'),
-  deleteReason: text('delete_reason'),
-  version: integer('version').notNull().default(1),
-});
 
 // ── global identity: no tenant_id, no RLS ───────────────────────────────────
 

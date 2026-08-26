@@ -131,6 +131,47 @@ export async function audit(
   entityId: string,
   entry: AuditEntry = {},
 ): Promise<void> {
+  return auditAs(
+    tx,
+    {
+      tenantId: ctx.activeTenantId,
+      actorPersonId: ctx.personId,
+      actorAccountId: ctx.accountId,
+      requestId: ctx.requestId,
+      impersonatedBy: ctx.impersonation?.operatorId,
+    },
+    action,
+    entityId,
+    entry,
+  );
+}
+
+/**
+ * The actor as the audit table sees them.
+ *
+ * `actorPersonId` is optional because a platform OPERATOR has no person row in
+ * the tenant they are acting on — provisioning creates the school before anyone
+ * belongs to it. `actorAccountId` still identifies them.
+ */
+export interface AuditActor {
+  tenantId: string;
+  actorPersonId?: string | undefined;
+  actorAccountId?: string | undefined;
+  requestId: string;
+  impersonatedBy?: string | undefined;
+}
+
+/**
+ * The form that does not require an AuthContext — for provisioning and other
+ * operator work, where the tenant exists but nobody is a member of it yet.
+ */
+export async function auditAs(
+  tx: Tx,
+  actor: AuditActor,
+  action: string,
+  entityId: string,
+  entry: AuditEntry = {},
+): Promise<void> {
   if (REASON_REQUIRED.has(action) && !entry.reason?.trim()) {
     throw new Error(`audit: "${action}" may not be recorded without a reason`);
   }
@@ -152,17 +193,17 @@ export async function audit(
 
   await tx.insert(auditLog).values({
     id: Ids.generate<'auditLog'>(),
-    tenantId: ctx.activeTenantId,
-    actorPersonId: ctx.personId,
-    actorAccountId: ctx.accountId,
+    tenantId: actor.tenantId as never,
+    actorPersonId: (actor.actorPersonId ?? null) as never,
+    actorAccountId: (actor.actorAccountId ?? null) as never,
     entityType: entry.entityType ?? (action.split('.')[0] || action),
     entityId: entityId as never,
     action,
     before: storedBefore,
     after: storedAfter,
     reason: entry.reason ?? null,
-    requestId: ctx.requestId,
-    impersonatedBy: ctx.impersonation?.operatorId ?? null,
+    requestId: actor.requestId,
+    impersonatedBy: (actor.impersonatedBy ?? null) as never,
     ip: normaliseIp(entry.ip),
     userAgent: entry.userAgent ?? null,
   });
