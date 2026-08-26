@@ -243,7 +243,9 @@ describe('tenant mutations leave a trail', () => {
     const rows = await authEvents('invite.accepted');
     expect(rows[0]?.outcome).toBe('success');
     expect(rows[0]?.detail?.['passwordSet']).toBe(true);
-    expect(rows[0]?.detail?.['membershipId']).toBe(uuid(membershipId));
+    // `detail` is jsonb: it holds the ULID the application passed, not the
+    // uuid representation the id COLUMNS are stored in.
+    expect(rows[0]?.detail?.['membershipId']).toBe(membershipId);
   }, 60_000);
 
   it('carries the reason on a revocation, and refuses to record one without', async () => {
@@ -272,11 +274,41 @@ describe('tenant mutations leave a trail', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.reason).toBe(reason);
 
-    // The reason is not merely requested by the DTO — audit() refuses the
-    // action outright, so a future caller cannot skip it.
+    /*
+     * A blank reason must be refused by audit() itself, not merely by the DTO,
+     * so a future caller reaching the use case directly cannot skip it. It
+     * needs a FRESH invite: the one above is already revoked, so the use case
+     * would return INVITE_NOT_FOUND before ever reaching audit().
+     */
+    const second = nid<'person'>();
+    await admin.query(
+      `INSERT INTO person (id, tenant_id, name_bn, name_en)
+       VALUES ($1,$2,'রেভোক দুই','Revoke Two')`,
+      [uuid(second), uuid(TENANT)],
+    );
+    const live = await inviteStaff(
+      adminCtx(),
+      { personId: second, identifier: `rev2-${Date.now()}@audit-int.example.bd`, roleIds: [] },
+      { tokens: tokenGenerator },
+    );
+    expect(live.ok).toBe(true);
+    if (!live.ok) return;
+
     await expect(
-      revokeInvite(adminCtx(), invited.value.membershipId, '   '),
+      revokeInvite(adminCtx(), live.value.membershipId, '   '),
     ).rejects.toThrow(/may not be recorded without a reason/);
+
+    /*
+     * And the revocation ROLLED BACK with it. audit() runs inside the same
+     * transaction as the change it describes, so a mutation that cannot be
+     * audited does not happen at all — which is what "every mutation is
+     * audited" has to mean to be worth anything.
+     */
+    const { rows: still } = await admin.query<{ revoked_at: Date | null }>(
+      `SELECT revoked_at FROM staff_invite WHERE membership_id = $1`,
+      [uuid(live.value.membershipId)],
+    );
+    expect(still[0]?.revoked_at).toBeNull();
   }, 60_000);
 });
 
