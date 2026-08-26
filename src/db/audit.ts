@@ -97,6 +97,9 @@ export const REASON_REQUIRED: ReadonlySet<string> = new Set([
   'membership.revoked',
   'role.granted',
   'role.revoked',
+  // The REFUSAL is audited too, and needs its reason for the same purpose: an
+  // investigation wants to know what the person claimed to be doing.
+  'role.grant_refused',
   'student.merged',
   'fee.waived',
   'fee.refunded',

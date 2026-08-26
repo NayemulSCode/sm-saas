@@ -106,3 +106,12 @@ export type { AuthContextDeps } from './application/resolveAuthContext';
 export { mergeScopes } from './domain/scope';
 export { InviteStaffSchema, AcceptInviteSchema, RevokeInviteSchema } from './application/dto';
 export type { InviteStaffDto, AcceptInviteDto, RevokeInviteDto } from './application/dto';
+
+export {
+  grantRole,
+  revokeRole,
+  listRoles,
+  GrantErrors,
+  type GrantRoleInput,
+} from './application/grantRole';
+export { evaluateGrant, type GrantVerdict } from './domain/grant';
