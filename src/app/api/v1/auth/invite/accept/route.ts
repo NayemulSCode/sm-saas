@@ -42,6 +42,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     {
       token: parsed.data.token,
       password: parsed.data.password,
+      requestId,
       ...(ip !== 'unknown' ? { ip } : {}),
       ...(ua ? { userAgent: ua } : {}),
     },

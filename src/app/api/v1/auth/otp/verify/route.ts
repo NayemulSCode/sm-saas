@@ -40,6 +40,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     {
       identifier: parsed.data.identifier,
       code: parsed.data.code,
+      requestId,
       ...(clientIp(req) !== 'unknown' ? { ip: clientIp(req) } : {}),
       ...(req.headers.get('user-agent')
         ? { userAgent: req.headers.get('user-agent')! }

@@ -11,6 +11,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
+import { recordAuthEvent, type RequestMeta } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { evaluateSession, shouldTouchLastSeen, type SessionAudience } from '../domain/session';
 import type { TokenGenerator } from '../domain/ports';
@@ -152,6 +153,7 @@ export async function switchContext(
   token: string,
   membershipId: MembershipId,
   deps: SessionDeps,
+  meta: RequestMeta = {},
 ): Promise<Result<{ membershipId: MembershipId; tenantId: string; tenantSlug: string }, DomainError>> {
   const resolved = await resolveSession(token, deps);
   if (!resolved.ok) return resolved;
@@ -159,13 +161,54 @@ export async function switchContext(
   return withPlatform('session: activate a membership context', async (tx) => {
     const m = await memberships.forAccount(tx, membershipId, resolved.value.accountId);
     // Belongs to another account, does not exist, or is suspended — all 404.
-    if (!m) return err(SessionErrors.CONTEXT_NOT_FOUND);
+    if (!m) {
+      /*
+       * Someone offering a membership id their account does not own is either
+       * a stale tab or an attempt to walk into another school. Both are worth
+       * a row; only the second is worth an alert, and you cannot build the
+       * second without the first.
+       */
+      await recordAuthEvent(tx, {
+        ...meta,
+        type: 'context.switched',
+        outcome: 'failure',
+        accountId: resolved.value.accountId,
+        sessionId: resolved.value.sessionId,
+        reason: 'context_not_found',
+        detail: { requestedMembershipId: membershipId },
+      });
+      return err(SessionErrors.CONTEXT_NOT_FOUND);
+    }
 
     if (m.tenantStatus === 'purged' || m.tenantStatus === 'cancelled') {
+      await recordAuthEvent(tx, {
+        ...meta,
+        type: 'context.switched',
+        outcome: 'failure',
+        accountId: resolved.value.accountId,
+        sessionId: resolved.value.sessionId,
+        reason: `tenant_${m.tenantStatus}`,
+        detail: { membershipId: m.membershipId },
+      });
       return err(SessionErrors.TENANT_UNAVAILABLE);
     }
 
     await sessions.setActiveMembership(tx, resolved.value.sessionId, m.membershipId);
+
+    /*
+     * Global, not tenant-scoped, even though a tenant is now known. The event
+     * is about the SESSION, which spans tenants; recording it in the audit_log
+     * of the tenant just entered would make "which schools did this account
+     * move between" a query nobody can run without reading every tenant.
+     */
+    await recordAuthEvent(tx, {
+      ...meta,
+      type: 'context.switched',
+      outcome: 'success',
+      accountId: resolved.value.accountId,
+      sessionId: resolved.value.sessionId,
+      detail: { membershipId: m.membershipId, tenantId: m.tenantId },
+    });
 
     return ok({
       membershipId: m.membershipId,
@@ -180,15 +223,40 @@ export async function switchContext(
  * session is server-side state rather than a signed token — which is the whole
  * reason for not using JWTs (NFR §4.6).
  */
-export async function revokeSession(sessionId: SessionId): Promise<void> {
+export async function revokeSession(
+  sessionId: SessionId,
+  meta: RequestMeta = {},
+  accountId?: AccountId,
+): Promise<void> {
   await withPlatform('session: revoke a single session', async (tx) => {
     await sessions.revoke(tx, sessionId);
+    await recordAuthEvent(tx, {
+      ...meta,
+      type: 'session.revoked',
+      outcome: 'success',
+      sessionId,
+      accountId,
+      reason: 'logout',
+    });
   });
 }
 
 /** Every session for an account — used when a credential is compromised. */
-export async function revokeAllSessions(accountId: AccountId): Promise<number> {
-  return withPlatform('session: revoke every session for an account', async (tx) =>
-    sessions.revokeAllForAccount(tx, accountId),
-  );
+export async function revokeAllSessions(
+  accountId: AccountId,
+  reason = 'credential_compromised',
+  meta: RequestMeta = {},
+): Promise<number> {
+  return withPlatform('session: revoke every session for an account', async (tx) => {
+    const revoked = await sessions.revokeAllForAccount(tx, accountId);
+    await recordAuthEvent(tx, {
+      ...meta,
+      type: 'session.revoked',
+      outcome: 'success',
+      accountId,
+      reason,
+      detail: { count: revoked, all: true },
+    });
+    return revoked;
+  });
 }

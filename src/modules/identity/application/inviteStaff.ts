@@ -11,6 +11,7 @@
  */
 
 import { withTenant, withPlatform } from '../../../db/rls';
+import { audit } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { authorize, type AuthContext } from '../../../shared/auth-context';
 import { Ids, type MembershipId, type PersonId, type RoleId } from '../../../shared/ids';
@@ -113,6 +114,17 @@ export async function inviteStaff(
     // sign in with the credentials they already use. No link is minted, so
     // there is nothing to leak.
     if (existing.passwordHash !== null && existing.passwordHash.length > 0) {
+      await audit(tx, ctx, 'membership.granted', membershipId, {
+        after: {
+          membershipId,
+          personId: input.personId,
+          accountId: existing.accountId,
+          roleCount: input.roleIds.length,
+          // The distinguishing fact: no link was minted, so there is nothing
+          // to leak and nothing to revoke.
+          inviteLinkIssued: false,
+        },
+      });
       return ok({ membershipId, inviteToken: null, expiresAt: null });
     }
 
@@ -127,6 +139,20 @@ export async function inviteStaff(
       tokenHash: hash,
       expiresAt,
       invitedBy: ctx.personId,
+    });
+
+    // The TOKEN is never audited, only the fact that one exists. An audit row
+    // carrying a live invite link would make the audit table a credential
+    // store, which is the thing hashing it at rest was meant to prevent.
+    await audit(tx, ctx, 'invite.created', membershipId, {
+      entityType: 'invite',
+      after: {
+        membershipId,
+        personId: input.personId,
+        accountId: existing.accountId,
+        roleCount: input.roleIds.length,
+        inviteLinkIssued: true,
+      },
     });
 
     return ok({ membershipId, inviteToken: token, expiresAt });
@@ -144,6 +170,15 @@ export async function revokeInvite(
   return withTenant(ctx, async (tx) => {
     const count = await invites.revokeForMembership(tx, membershipId, reason, ctx.personId);
     if (count === 0) return err(InviteErrors.INVITE_NOT_FOUND);
+
+    // `audit()` refuses 'invite.revoked' without a reason, so the reason is
+    // structurally guaranteed rather than merely requested by the DTO.
+    await audit(tx, ctx, 'invite.revoked', membershipId, {
+      entityType: 'invite',
+      reason,
+      after: { membershipId, revokedCount: count },
+    });
+
     return ok({ revoked: true });
   });
 }

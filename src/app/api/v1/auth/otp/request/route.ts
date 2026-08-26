@@ -42,8 +42,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
+  const ip = clientIp(req);
+  const ua = req.headers.get('user-agent');
   await requestOtp(
-    { identifier: parsed.data.identifier },
+    {
+      identifier: parsed.data.identifier,
+      requestId,
+      ...(ip !== 'unknown' ? { ip } : {}),
+      ...(ua ? { userAgent: ua } : {}),
+    },
     { codeHasher, random: randomSource, dispatcher: otpDispatcher() },
   );
 

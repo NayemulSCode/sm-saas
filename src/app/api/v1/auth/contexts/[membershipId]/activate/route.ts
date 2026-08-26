@@ -29,6 +29,7 @@ export async function POST(
     token,
     parsed.data.membershipId as MembershipId,
     { tokens: tokenGenerator },
+    { requestId },
   );
   if (!result.ok) return fail(result.error, requestId);
 

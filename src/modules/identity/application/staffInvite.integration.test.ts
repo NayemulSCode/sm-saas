@@ -35,6 +35,8 @@ const NEW_PERSON = nid<'person'>();
 const EXISTING_PERSON_A = nid<'person'>();
 const EXISTING_PERSON_B = nid<'person'>();
 const EXISTING_ACCOUNT = nid();
+/* Real, because audit_log.actor_account_id references account(id). */
+const ADMIN_ACCOUNT = nid<'account'>();
 
 const NEW_EMAIL = 'newteacher@invite-int.example.bd';
 const EXISTING_EMAIL = 'veteran@invite-int.example.bd';
@@ -47,7 +49,7 @@ const acceptDeps = { hasher: passwordHasher, tokens: tokenGenerator };
 /** An authenticated school administrator in tenant A. */
 function adminCtx(tenantId: TenantId, personId: PersonId): AuthContext {
   return {
-    accountId: nid(),
+    accountId: ADMIN_ACCOUNT,
     sessionId: nid(),
     tenantIds: [tenantId],
     activeTenantId: tenantId,
@@ -100,6 +102,11 @@ beforeAll(async () => {
       [uuid(p), uuid(t)],
     );
   }
+
+  await admin.query(
+    `INSERT INTO account (id, status, locale) VALUES ($1,'active','bn') ON CONFLICT DO NOTHING`,
+    [uuid(ADMIN_ACCOUNT)],
+  );
 
   // A teacher who already works at school B, with a password.
   const hash = await passwordHasher.hash(EXISTING_PASSWORD);

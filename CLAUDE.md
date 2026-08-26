@@ -44,6 +44,8 @@ Each one has been verified by deliberately violating it, per §11.7:
 | `no-restricted-imports` outside `db/**` | Importing `db/pool` instead of using `withTenant` |
 | `no-restricted-syntax` | Arithmetic on `Money.minor` outside `shared/money.ts` |
 | Isolation suite | A `tenant_id` table without RLS enabled, forced and a `WITH CHECK` policy |
+| Isolation suite | `UPDATE` or `DELETE` on `audit_log` / `auth_event` — both are append-only |
+| `audit()` | Recording a destructive action without a reason |
 
 If a guard blocks you, the guard is usually right.
 

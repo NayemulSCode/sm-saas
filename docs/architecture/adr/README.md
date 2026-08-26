@@ -45,6 +45,7 @@ or lacks a `Revisit when` section.
 | [0031](0031-dependency-version-policy.md) | Pin to latest stable at scaffold time, with a documented upgrade policy | Accepted | `typescript-eslint` ships TS 7 support; a new Node LTS line |
 
 | [0032](0032-composite-tenant-foreign-keys.md) | Composite `(tenant_id, id)` foreign keys between tenant-owned tables | Accepted | A catalogue test guards it; or a legitimate cross-tenant reference appears |
+| [0033](0033-two-audit-trails.md) | Two audit trails: `auth_event` global, `audit_log` tenant-owned, both append-only | Accepted | An operator needs the `UNION` more than weekly; or `audit_log` passes 100 M rows |
 
 ## The three triggers most likely to fire first
 
