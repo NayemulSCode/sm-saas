@@ -170,14 +170,21 @@ describe('provisioning a school', () => {
       await count('SELECT count(*)::text n FROM campus WHERE tenant_id=$1 AND is_primary', [t]),
     ).toBe(1);
 
+    /*
+     * `::text`, not the bare column. The raw pg driver parses `date` into a JS
+     * Date in the process timezone — the midnight-UTC-is-06:00-in-Dhaka bug
+     * that LocalDate exists to prevent. Application code never sees it because
+     * it goes through the `localDate` custom type; a raw SQL assertion does.
+     */
     const { rows } = await admin.query<{ name: string; status: string; start_date: string }>(
-      'SELECT name, status, start_date FROM academic_year WHERE tenant_id=$1 AND is_current',
+      `SELECT name, status, start_date::text AS start_date
+       FROM academic_year WHERE tenant_id=$1 AND is_current`,
       [t],
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.status).toBe('active');
     expect(rows[0]?.name).toBe('2027');
-    expect(String(rows[0]?.start_date)).toContain('2027-01-01');
+    expect(rows[0]?.start_date).toBe('2027-01-01');
   }, 30_000);
 
   it('copies the role templates into the tenant, permissions and all', async () => {
