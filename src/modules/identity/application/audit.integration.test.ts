@@ -32,6 +32,13 @@ const PLAN = nid();
 const TENANT = nid<'tenant'>();
 const ADMIN_PERSON = nid<'person'>();
 const STAFF_PERSON = nid<'person'>();
+/*
+ * A REAL account row, not an invented id. audit_log.actor_account_id has a
+ * foreign key to account(id), so a context carrying a fictional account now
+ * fails the insert — which is the audit trail refusing to record an actor who
+ * does not exist.
+ */
+const ADMIN_ACCOUNT = nid<'account'>();
 
 /** Real-looking, and therefore exactly what must not appear in the tables. */
 const KNOWN_PHONE = '+8801912345678';
@@ -43,7 +50,7 @@ let admin: Pool;
 
 function adminCtx(): AuthContext {
   return {
-    accountId: nid(),
+    accountId: ADMIN_ACCOUNT,
     sessionId: nid(),
     tenantIds: [TENANT],
     activeTenantId: TENANT,
@@ -93,21 +100,21 @@ beforeAll(async () => {
     );
   }
 
-  // An account that can receive an OTP.
-  const account = nid();
+  // The administrator's account: it can receive an OTP, and it is the actor
+  // every audit_log row below points at.
   await admin.query(
     `INSERT INTO account (id, status, locale) VALUES ($1,'active','bn') ON CONFLICT DO NOTHING`,
-    [uuid(account)],
+    [uuid(ADMIN_ACCOUNT)],
   );
   await admin.query(
     `INSERT INTO credential (id, account_id, kind, value, verified_at)
      VALUES ($1,$2,'phone',$3, now()) ON CONFLICT DO NOTHING`,
-    [uuid(nid()), uuid(account), KNOWN_PHONE],
+    [uuid(nid()), uuid(ADMIN_ACCOUNT), KNOWN_PHONE],
   );
   await admin.query(
     `INSERT INTO membership (id, tenant_id, account_id, person_id, status)
      VALUES ($1,$2,$3,$4,'active') ON CONFLICT DO NOTHING`,
-    [uuid(nid()), uuid(TENANT), uuid(account), uuid(ADMIN_PERSON)],
+    [uuid(nid()), uuid(TENANT), uuid(ADMIN_ACCOUNT), uuid(ADMIN_PERSON)],
   );
 }, 60_000);
 
