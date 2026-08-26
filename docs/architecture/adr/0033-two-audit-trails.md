@@ -21,7 +21,17 @@ applies. But authentication happens **before a tenant is known**:
   model ([ADR-0006](0006-identity-model.md)).
 - `withPlatform` deliberately sets **no** tenant context, so
   `app.current_tenant_ids()` returns an empty array and every policy matches
-  nothing. An `audit_log` insert from the login path is refused by RLS.
+  nothing.
+
+  > **Correction, 2026-08-26.** This ADR originally concluded from that fact
+  > that an `audit_log` insert from the login path *is refused by RLS*. It is
+  > not: `sm_platform` is created `BYPASSRLS` (migration `0001`), so the insert
+  > would succeed if a `tenant_id` were supplied. The claim was wrong and is
+  > left visible rather than quietly rewritten. The decision is unchanged,
+  > because it never depended on this point — the reason below is independent
+  > and on its own sufficient. Provisioning relies on the same `BYPASSRLS`
+  > property to write a new school's first `audit_log` row before anyone is a
+  > member of it.
 - A failed attempt on an unknown phone number has **no tenant at all**, not even
   in principle. It is the single most important row to keep during an attack.
 

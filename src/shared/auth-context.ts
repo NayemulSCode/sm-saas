@@ -125,3 +125,45 @@ export function can(ctx: AuthContext, permission: Permission, target?: ScopeTarg
     return false;
   }
 }
+
+/**
+ * An OPERATOR of the platform, not a member of any school.
+ *
+ * A separate type rather than an AuthContext with the tenant fields left blank.
+ * An operator genuinely has no `activeTenantId`, no `personId` and no
+ * `membershipId` — those come from a verified membership, and an operator has
+ * none. Faking them would put unverifiable values into the one object the whole
+ * tenancy chain trusts, and `withTenant` would happily open a session for a
+ * tenant nobody proved they belong to.
+ *
+ * The platform pool is the only place this is usable, and every use of it is
+ * audited (ADR-0029).
+ */
+export interface PlatformContext {
+  /**
+   * Optional, because a CLI run has no account behind it — only whoever holds
+   * the platform database credentials. The audit records that honestly as a
+   * null actor rather than inventing an operator who does not exist. The
+   * operator console will always supply one.
+   */
+  readonly accountId?: AccountId | undefined;
+  readonly permissions: ReadonlySet<Permission>;
+  readonly requestId: string;
+  /** Required and audited. Operator actions are never routine. */
+  readonly reason: string;
+}
+
+/** `authorize()` for an operator. Same assertion, different subject. */
+export function authorizePlatform(ctx: PlatformContext, permission: Permission): void {
+  if (!permission.startsWith('platform.')) {
+    // A tenant permission checked against an operator context would pass or
+    // fail for the wrong reasons; it is a programming error, not a refusal.
+    throw new Error(`authorizePlatform called with a tenant permission: ${permission}`);
+  }
+  if (!ctx.permissions.has(permission)) {
+    throw new AuthorizationError(permission, 'forbidden');
+  }
+  if (ctx.reason.trim().length < 10) {
+    throw new Error('a platform action requires a substantive audit reason');
+  }
+}

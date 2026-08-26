@@ -150,6 +150,11 @@ pnpm db:migrate && pnpm seed && pnpm test:isolation
 has a foreign key to `permission(key)`, so on an unseeded database no permission
 can be granted and every authorised endpoint answers 403.
 
+A school is created by `pnpm provision` (`scripts/provision-tenant.ts`), which
+copies `role_template` into the tenant. Never build a tenant by hand in a test
+fixture if the use case can do it — hand-built tenants are how the missing
+`permission` seed stayed invisible for four increments.
+
 ## Things that look like bugs but are not
 
 - `tenant.shard_id` is `'primary'` for every row. Intentional — it is the
