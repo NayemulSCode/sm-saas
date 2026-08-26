@@ -31,6 +31,27 @@ import type { AuthContext } from '../shared/auth-context';
 /** What a redacted value looks like in the stored JSON. */
 export const REDACTED = '[redacted]';
 
+/**
+ * A value the CALLER declares is a fact about the operation rather than data
+ * from a row: a permission key, a role code, an enum, a count.
+ *
+ * Redaction is a whitelist and stays one — but `refusedBecause: 'self_grant'`
+ * and `excess: 'membership.manage'` are the entire point of a refusal row, and
+ * a redacted refusal reason is a row nobody can act on.
+ *
+ * A marker rather than a heuristic on purpose. Any rule clever enough to spot
+ * "self_grant" as safe is eventually clever enough to spot a name as safe, and
+ * it would do so invisibly. `fact(person.nameBn)` is visibly wrong in review;
+ * a passing regex is not.
+ */
+class Fact {
+  constructor(readonly value: string | number | boolean) {}
+}
+
+export function fact(value: string | number | boolean): unknown {
+  return new Fact(value);
+}
+
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Loose on purpose — PostgreSQL validates `inet`; this only rejects junk. */
@@ -49,6 +70,8 @@ function isIdLike(value: string): boolean {
  */
 export function redactValue(value: unknown): unknown {
   if (value === null || value === undefined) return null;
+  // Checked before everything else: the caller has taken responsibility.
+  if (value instanceof Fact) return value.value;
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string' && isIdLike(value)) return value;
   return REDACTED;
@@ -97,6 +120,9 @@ export const REASON_REQUIRED: ReadonlySet<string> = new Set([
   'membership.revoked',
   'role.granted',
   'role.revoked',
+  // The REFUSAL is audited too, and needs its reason for the same purpose: an
+  // investigation wants to know what the person claimed to be doing.
+  'role.grant_refused',
   'student.merged',
   'fee.waived',
   'fee.refunded',

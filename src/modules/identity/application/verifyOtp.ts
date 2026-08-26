@@ -6,7 +6,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
-import { recordAuthEvent } from '../../../db/audit';
+import { recordAuthEvent, fact } from '../../../db/audit';
 import {
   type Result,
   ok,
@@ -203,7 +203,13 @@ export async function verifyOtp(
       outcome: 'success',
       sessionId: created?.id,
       identifier: identifier.value.value,
-      detail: { method: 'otp', autoActivated: Boolean(only), contexts: contexts.length },
+      // fact(): a login method and a context count are operational facts,
+      // not values from anybody's row.
+      detail: {
+        method: fact('otp'),
+        autoActivated: Boolean(only),
+        contexts: fact(contexts.length),
+      },
     });
 
     return ok({

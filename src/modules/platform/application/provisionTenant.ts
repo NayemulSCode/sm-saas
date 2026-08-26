@@ -239,6 +239,13 @@ export async function provisionTenant(
         createdBy: ownerPersonId,
       });
 
+      /*
+       * Granted DIRECTLY, not through identity's grantRole. That use case
+       * enforces §9.5 — no granting beyond your own permissions, no editing
+       * your own membership — and both rules are meaningless here: there is no
+       * existing member to check against, and the whole point is to create the
+       * first one. Every later grant must go through grantRole.
+       */
       const principal = roles.find((r) => r.code === 'Principal') ?? roles[0]!;
       await provisioning.grantRole(tx, {
         tenantId,
