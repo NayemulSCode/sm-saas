@@ -39,12 +39,19 @@ const REUSED_PHONE = '+8801733000222';
 let admin: Pool;
 let operator: PlatformContext;
 
+/**
+ * A REAL account row. audit_log.actor_account_id references account(id), so an
+ * invented operator id fails the insert — the audit trail refusing to record an
+ * actor who does not exist.
+ */
+const OPERATOR_ACCOUNT = nid<'account'>();
+
 /** A fixed clock, so the academic year the test asserts is not the calendar's. */
 const clock = { now: () => new Date('2027-03-14T06:00:00.000Z') };
 
 function operatorCtx(permissions: Permission[] = [...PERMISSIONS]): PlatformContext {
   return {
-    accountId: nid<'account'>(),
+    accountId: OPERATOR_ACCOUNT,
     permissions: new Set(permissions),
     requestId: 'prov-int-request',
     reason: 'provisioning a school for an integration test',
@@ -81,6 +88,11 @@ beforeAll(async () => {
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
      VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
     [uuid(nid()), PLAN_CODE],
+  );
+
+  await admin.query(
+    `INSERT INTO account (id, status, locale) VALUES ($1,'active','en') ON CONFLICT DO NOTHING`,
+    [uuid(OPERATOR_ACCOUNT)],
   );
 
   // The account that provisioning must REUSE rather than fork.
@@ -397,6 +409,39 @@ describe('an owner who already has an account', () => {
       [uuid(r.value.ownerPersonId)],
     );
     expect(rows[0]?.tenant_id).toBe(uuid(r.value.tenantId));
+  }, 60_000);
+});
+
+/*
+ * The CLI path. `pnpm provision` has no operator account behind it — only
+ * whoever holds the platform database credentials — so the audit row records a
+ * null actor rather than an invented one.
+ */
+describe('provisioning with no operator account', () => {
+  it('records a null actor rather than inventing one', async () => {
+    const { accountId: _drop, ...anonymous } = operatorCtx();
+    const r = await provisionTenant(
+      anonymous,
+      input({ slug: `cli-${Date.now()}` }),
+      { clock },
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+
+    const { rows } = await admin.query<{
+      actor_account_id: string | null;
+      actor_person_id: string | null;
+      reason: string;
+    }>(
+      `SELECT actor_account_id, actor_person_id, reason FROM audit_log
+       WHERE tenant_id = $1 AND action = 'tenant.provisioned'`,
+      [uuid(r.value.tenantId)],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.actor_account_id).toBeNull();
+    expect(rows[0]?.actor_person_id).toBeNull();
+    // The reason is still mandatory: it is the only trace of who and why.
+    expect(rows[0]?.reason).toBe(anonymous.reason);
   }, 60_000);
 });
 
