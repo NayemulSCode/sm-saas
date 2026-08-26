@@ -1,5 +1,5 @@
 /** Directory tables (migrations 0005, 0008). All tenant-owned, all RLS. */
-import { jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 import { localDate, ulidCol } from '../types';
 import { tenantColumns } from './columns';
 
@@ -26,4 +26,42 @@ export const person = pgTable('person', {
   birthRegNo: text('birth_reg_no'),
   address: jsonb('address').notNull().default({}),
   mergedIntoPersonId: ulidCol<'person'>('merged_into_person_id'),
+});
+
+/**
+ * A member of staff. One row per person who works at the school.
+ *
+ * Defined here rather than in the structure module because it belongs to
+ * `directory` — structure only reads it, to resolve a section's class teacher.
+ */
+export const staff = pgTable('staff', {
+  ...tenantColumns<'staff'>(),
+  personId: ulidCol<'person'>('person_id').notNull(),
+  employeeCode: text('employee_code').notNull(),
+  designation: text('designation'),
+  department: text('department'),
+  joinedOn: localDate('joined_on'),
+  leftOn: localDate('left_on'),
+  status: text('status', { enum: ['active', 'on_leave', 'left'] })
+    .notNull()
+    .default('active'),
+});
+
+/**
+ * Student × section × academic year — the join all history hangs from.
+ *
+ * Roll number lives HERE, not on the student: it is reassigned at every
+ * promotion, and putting it on the student erases last year's records.
+ */
+export const enrolment = pgTable('enrolment', {
+  ...tenantColumns<'enrolment'>(),
+  studentId: ulidCol<'student'>('student_id').notNull(),
+  sectionId: ulidCol<'section'>('section_id').notNull(),
+  academicYearId: ulidCol<'academicYear'>('academic_year_id').notNull(),
+  rollNo: integer('roll_no'),
+  enrolledOn: localDate('enrolled_on').notNull(),
+  leftOn: localDate('left_on'),
+  outcome: text('outcome', {
+    enum: ['promoted', 'retained', 'transferred', 'withdrawn'],
+  }),
 });
