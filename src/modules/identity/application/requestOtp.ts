@@ -12,6 +12,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
+import { recordAuthEvent } from '../../../db/audit';
 import { type Result, ok } from '../../../shared/result';
 import { normaliseIdentifier } from '../domain/phone';
 import {
@@ -26,6 +27,9 @@ import { credentials, otpChallenges } from '../infrastructure/repositories';
 export interface RequestOtpInput {
   identifier: string;
   purpose?: 'login' | 'verify' | 'reset' | 'step_up';
+  requestId?: string | undefined;
+  ip?: string | undefined;
+  userAgent?: string | undefined;
 }
 
 export interface RequestOtpDeps {
@@ -48,6 +52,8 @@ export async function requestOtp(
   const now = deps.now?.() ?? new Date();
   const uniform: RequestOtpResult = { accepted: true, expiresInSeconds: OTP.ttlSeconds };
 
+  const meta = { requestId: input.requestId, ip: input.ip, userAgent: input.userAgent };
+
   const identifier = normaliseIdentifier(input.identifier);
   // A malformed identifier gets the same answer as an unknown one.
   if (!identifier.ok) return ok(uniform);
@@ -58,14 +64,40 @@ export async function requestOtp(
       identifier.value.kind,
       identifier.value.value,
     );
-    if (!cred) return;
+    if (!cred) {
+      /*
+       * Recorded even though the RESPONSE is uniform. The uniformity exists to
+       * stop an outsider discovering who is enrolled; it was never meant to
+       * hide a number-sweeping attack from us. An event in every branch also
+       * keeps the branches similar in wall-clock time.
+       */
+      await recordAuthEvent(tx, {
+        ...meta,
+        type: 'otp.requested',
+        outcome: 'failure',
+        identifier: identifier.value.value,
+        reason: 'unknown_identifier',
+      });
+      return;
+    }
 
     // Rate limit per identifier. Each OTP is a billable SMS, so this is a spend
     // control as much as a security one. Per-IP limiting is applied at the
     // transport edge, where the IP actually lives.
     const windowStart = new Date(now.getTime() - OTP.requestWindowSeconds * 1000);
     const recent = await otpChallenges.countSince(tx, cred.id, windowStart);
-    if (recent >= OTP.maxRequestsPerWindow) return;
+    if (recent >= OTP.maxRequestsPerWindow) {
+      await recordAuthEvent(tx, {
+        ...meta,
+        type: 'otp.requested',
+        outcome: 'failure',
+        accountId: cred.accountId,
+        credentialId: cred.id,
+        identifier: identifier.value.value,
+        reason: 'rate_limited',
+      });
+      return;
+    }
 
     // A resend reuses the live challenge rather than minting a second code:
     // two valid codes double both the guessing surface and the SMS bill.
@@ -85,6 +117,16 @@ export async function requestOtp(
     ) {
       // The stored hash cannot be reversed, so a reused challenge cannot be
       // re-sent. The user waits for the original message or for it to expire.
+      await recordAuthEvent(tx, {
+        ...meta,
+        type: 'otp.requested',
+        outcome: 'success',
+        accountId: cred.accountId,
+        credentialId: cred.id,
+        identifier: identifier.value.value,
+        reason: 'reused_live_challenge',
+        detail: { dispatched: false },
+      });
       return;
     }
 
@@ -99,6 +141,16 @@ export async function requestOtp(
     // Phase 3b replaces this with a pg-boss enqueue in THIS transaction, so a
     // rolled-back challenge cannot produce a delivered code (invariant 9).
     await deps.dispatcher.send(identifier.value, code);
+
+    await recordAuthEvent(tx, {
+      ...meta,
+      type: 'otp.requested',
+      outcome: 'success',
+      accountId: cred.accountId,
+      credentialId: cred.id,
+      identifier: identifier.value.value,
+      detail: { dispatched: true },
+    });
   });
 
   return ok(uniform);

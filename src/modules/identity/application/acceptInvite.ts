@@ -10,6 +10,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
+import { recordAuthEvent } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { verifyInvite, shouldSetPassword } from '../domain/invite';
 import { initialExpiry } from '../domain/session';
@@ -47,6 +48,7 @@ export interface AcceptInviteInput {
   password: string;
   ip?: string;
   userAgent?: string;
+  requestId?: string | undefined;
 }
 
 export interface AcceptInviteDeps {
@@ -68,9 +70,34 @@ export async function acceptInvite(
 ): Promise<Result<AcceptInviteResult, DomainError>> {
   const now = deps.now?.() ?? new Date();
 
+  const meta = { requestId: input.requestId, ip: input.ip, userAgent: input.userAgent };
+
   return withPlatform('invite: accept a staff invitation and set a password', async (tx) => {
+    /*
+     * Acceptance is audited GLOBALLY, not in the tenant's audit_log, and the
+     * reason is mechanical: this runs on the platform pool because the token
+     * must be looked up before any tenant is known, and an audit_log insert
+     * from a transaction with no tenant context is refused by RLS. The tenant
+     * side of the story is already recorded — inviteStaff wrote
+     * `invite.created` into that school's log (ADR-0033).
+     */
+    const refuse = async (reason: string, extra: { accountId?: string } = {}): Promise<void> => {
+      await recordAuthEvent(tx, {
+        ...meta,
+        ...extra,
+        type: 'invite.accepted',
+        outcome: 'failure',
+        reason,
+      });
+    };
+
     const invite = await invites.byTokenHash(tx, deps.tokens.hashToken(input.token));
-    if (!invite) return err(AcceptInviteErrors.INVITE_INVALID);
+    if (!invite) {
+      // Unknown, already used, or revoked — the caller cannot tell which, but
+      // a burst of these against random tokens is a signal worth keeping.
+      await refuse('token_not_found');
+      return err(AcceptInviteErrors.INVITE_INVALID);
+    }
 
     const verdict = verifyInvite(
       {
@@ -80,20 +107,30 @@ export async function acceptInvite(
       },
       now,
     );
-    if (verdict.kind !== 'valid') return err(AcceptInviteErrors.INVITE_INVALID);
+    if (verdict.kind !== 'valid') {
+      await refuse(`invite_${verdict.kind}`, { accountId: invite.accountId });
+      return err(AcceptInviteErrors.INVITE_INVALID);
+    }
 
     const acct = await accounts.byId(tx, invite.accountId);
-    if (!acct || acct.status !== 'active') return err(AcceptInviteErrors.INVITE_INVALID);
+    if (!acct || acct.status !== 'active') {
+      await refuse('account_inactive', { accountId: invite.accountId });
+      return err(AcceptInviteErrors.INVITE_INVALID);
+    }
 
     // Re-read the credential rather than trusting the invite: the account may
     // have gained a password between the invite being issued and accepted.
     const cred = await credentials.byId(tx, invite.credentialId);
-    if (!cred) return err(AcceptInviteErrors.INVITE_INVALID);
+    if (!cred) {
+      await refuse('credential_missing', { accountId: invite.accountId });
+      return err(AcceptInviteErrors.INVITE_INVALID);
+    }
 
     if (!shouldSetPassword(cred.passwordHash)) {
       // Consume it anyway: the membership is already active, and leaving a
       // live link lying around is worse than closing it.
       await invites.consume(tx, invite.id);
+      await refuse('password_already_set', { accountId: invite.accountId });
       return err(AcceptInviteErrors.PASSWORD_ALREADY_SET);
     }
 
@@ -120,6 +157,20 @@ export async function acceptInvite(
       await sessions.setActiveMembership(tx, created.id, only.membershipId);
     }
     await accounts.recordSuccessfulLogin(tx, invite.accountId);
+
+    await recordAuthEvent(tx, {
+      ...meta,
+      type: 'invite.accepted',
+      outcome: 'success',
+      accountId: invite.accountId,
+      credentialId: cred.id,
+      sessionId: created?.id,
+      detail: {
+        membershipId: invite.membershipId,
+        passwordSet: true,
+        autoActivated: Boolean(only),
+      },
+    });
 
     return ok({
       sessionToken: token,

@@ -9,6 +9,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
+import { recordAuthEvent } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { normaliseIdentifier } from '../domain/phone';
 import { gateLogin, hasPassword, shouldLock, lockUntil, LOCKOUT } from '../domain/password';
@@ -50,6 +51,7 @@ export interface PasswordLoginInput {
   password: string;
   ip?: string;
   userAgent?: string;
+  requestId?: string | undefined;
 }
 
 export interface PasswordLoginDeps {
@@ -94,7 +96,29 @@ export async function authenticatePassword(
     return err(PasswordErrors.INVALID_CREDENTIALS);
   }
 
+  const meta = { requestId: input.requestId, ip: input.ip, userAgent: input.userAgent };
+
   return withPlatform('login: verify a password and open a session', async (tx) => {
+    /*
+     * Password failures all answer INVALID_CREDENTIALS and all burn the same
+     * amount of time, so the endpoint gives nothing away. The reason still has
+     * to be written down somewhere, or nobody can tell a forgotten password
+     * from a credential-stuffing run.
+     */
+    const refuse = async (
+      reason: string,
+      extra: { accountId?: string; credentialId?: string } = {},
+    ): Promise<void> => {
+      await recordAuthEvent(tx, {
+        ...meta,
+        ...extra,
+        type: 'password.attempted',
+        outcome: 'failure',
+        identifier: identifier.value.value,
+        reason,
+      });
+    };
+
     const cred = await credentials.byIdentifier(
       tx,
       identifier.value.kind,
@@ -102,12 +126,16 @@ export async function authenticatePassword(
     );
     if (!cred) {
       await burnComparableTime(deps.hasher, input.password);
+      await refuse('unknown_identifier');
       return err(PasswordErrors.INVALID_CREDENTIALS);
     }
+
+    const ids = { accountId: cred.accountId, credentialId: cred.id };
 
     const acct = await accounts.byId(tx, cred.accountId);
     if (!acct) {
       await burnComparableTime(deps.hasher, input.password);
+      await refuse('no_account', ids);
       return err(PasswordErrors.INVALID_CREDENTIALS);
     }
 
@@ -121,9 +149,13 @@ export async function authenticatePassword(
       },
       now,
     );
-    if (gate.kind === 'locked') return err(PasswordErrors.ACCOUNT_LOCKED);
+    if (gate.kind === 'locked') {
+      await refuse('account_locked', ids);
+      return err(PasswordErrors.ACCOUNT_LOCKED);
+    }
     if (gate.kind === 'disabled') {
       await burnComparableTime(deps.hasher, input.password);
+      await refuse('account_disabled', ids);
       return err(PasswordErrors.INVALID_CREDENTIALS);
     }
 
@@ -131,6 +163,7 @@ export async function authenticatePassword(
     // answer as a wrong password.
     if (!hasPassword(cred.passwordHash)) {
       await burnComparableTime(deps.hasher, input.password);
+      await refuse('no_password_set', ids);
       return err(PasswordErrors.INVALID_CREDENTIALS);
     }
 
@@ -145,13 +178,30 @@ export async function authenticatePassword(
       // The lock is applied by the repository when the threshold is reached;
       // the caller still sees INVALID_CREDENTIALS for this attempt, and
       // ACCOUNT_LOCKED only on the next one.
-      void shouldLock(attempts);
       void lockUntil(now);
+      await refuse('wrong_password', ids);
+      // The lock crossing its threshold is its own event: it is the row an
+      // investigation looks for, and it must not be buried in a stream of
+      // ordinary failures.
+      if (shouldLock(attempts)) {
+        await recordAuthEvent(tx, {
+          ...meta,
+          ...ids,
+          type: 'account.locked',
+          outcome: 'failure',
+          identifier: identifier.value.value,
+          reason: 'too_many_failed_attempts',
+          detail: { attempts },
+        });
+      }
       return err(PasswordErrors.INVALID_CREDENTIALS);
     }
 
     const contexts = await memberships.contextsForAccount(tx, cred.accountId);
-    if (contexts.length === 0) return err(PasswordErrors.NO_MEMBERSHIP);
+    if (contexts.length === 0) {
+      await refuse('no_membership', ids);
+      return err(PasswordErrors.NO_MEMBERSHIP);
+    }
 
     const audience: SessionAudience = 'staff';
     const { token, hash } = deps.tokens.newSessionToken();
@@ -172,6 +222,16 @@ export async function authenticatePassword(
 
     // Clears failed_attempts and any stale lock.
     await accounts.recordSuccessfulLogin(tx, cred.accountId);
+
+    await recordAuthEvent(tx, {
+      ...meta,
+      ...ids,
+      type: 'session.created',
+      outcome: 'success',
+      sessionId: created?.id,
+      identifier: identifier.value.value,
+      detail: { method: 'password', autoActivated: Boolean(only), contexts: contexts.length },
+    });
 
     return ok({
       sessionToken: token,

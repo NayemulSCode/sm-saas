@@ -362,3 +362,98 @@ describe('behavioural: no tenant table leaks', () => {
     }
   });
 });
+
+// ── 5. The audit trail is append-only ───────────────────────────────────────
+//
+// An audit trail the application can rewrite is not an audit trail. The app
+// role holds SELECT and INSERT and nothing else, so this is enforced by the
+// database rather than by everyone remembering not to write an UPDATE.
+
+describe('audit tables are append-only for the app role', () => {
+  const seed = async (): Promise<void> => {
+    await admin.query(
+      `INSERT INTO audit_log (id, tenant_id, entity_type, entity_id, action, request_id)
+       VALUES ('01930000-0000-7000-8000-0000000000a1', $1, 'person',
+               '01930000-0000-7000-8000-0000000000a2', 'person.created', 'seed')
+       ON CONFLICT DO NOTHING`,
+      [TENANT_A],
+    );
+    await admin.query(
+      `INSERT INTO auth_event (id, type, outcome, request_id)
+       VALUES ('01930000-0000-7000-8000-0000000000a3', 'otp.requested', 'failure', 'seed')
+       ON CONFLICT DO NOTHING`,
+    );
+  };
+
+  const asApp = async (sql: string, params: unknown[] = []): Promise<void> => {
+    const c = await app.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.tenant_ids', $1, true)`, [TENANT_A]);
+      await c.query(sql, params);
+      await c.query('COMMIT');
+    } finally {
+      await c.query('ROLLBACK').catch(() => undefined);
+      c.release();
+    }
+  };
+
+  beforeAll(seed);
+
+  it('lets the app INSERT into audit_log — the trail must be writable', async () => {
+    await expect(
+      asApp(
+        `INSERT INTO audit_log (id, tenant_id, entity_type, entity_id, action, request_id)
+         VALUES (gen_random_uuid(), $1, 'person', gen_random_uuid(), 'person.updated', 'test')`,
+        [TENANT_A],
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses UPDATE on audit_log', async () => {
+    await expect(
+      asApp(`UPDATE audit_log SET action = 'rewritten' WHERE tenant_id = $1`, [TENANT_A]),
+    ).rejects.toThrow(/permission denied/i);
+  });
+
+  it('refuses DELETE on audit_log', async () => {
+    await expect(
+      asApp(`DELETE FROM audit_log WHERE tenant_id = $1`, [TENANT_A]),
+    ).rejects.toThrow(/permission denied/i);
+  });
+
+  it('refuses UPDATE on auth_event', async () => {
+    await expect(asApp(`UPDATE auth_event SET outcome = 'success'`)).rejects.toThrow(
+      /permission denied/i,
+    );
+  });
+
+  it('refuses DELETE on auth_event', async () => {
+    await expect(asApp(`DELETE FROM auth_event`)).rejects.toThrow(/permission denied/i);
+  });
+
+  // The rows survived every attempt above.
+  it('still holds the seeded rows', async () => {
+    const a = await admin.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM audit_log WHERE id = '01930000-0000-7000-8000-0000000000a1'`,
+    );
+    const b = await admin.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM auth_event WHERE id = '01930000-0000-7000-8000-0000000000a3'`,
+    );
+    expect(a.rows[0]?.n).toBe('1');
+    expect(b.rows[0]?.n).toBe('1');
+  });
+
+  /*
+   * auth_event deliberately has NO tenant_id (ADR-0033). If someone adds one
+   * later they must also add RLS — the structural suite above enforces that —
+   * but this states the intent at the point it would be broken.
+   */
+  it('auth_event has no tenant_id, so it stays global by construction', async () => {
+    const { rows } = await admin.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM information_schema.columns
+       WHERE table_name = 'auth_event' AND column_name = 'tenant_id'`,
+    );
+    expect(rows[0]?.n).toBe('0');
+  });
+});

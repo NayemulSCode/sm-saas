@@ -18,7 +18,9 @@ export async function POST(): Promise<Response> {
 
   if (token) {
     const session = await resolveSession(token, { tokens: tokenGenerator });
-    if (session.ok) await revokeSession(session.value.sessionId);
+    if (session.ok) {
+      await revokeSession(session.value.sessionId, { requestId }, session.value.accountId);
+    }
   }
 
   return clearSessionCookie(ok({ loggedOut: true }, { requestId }));

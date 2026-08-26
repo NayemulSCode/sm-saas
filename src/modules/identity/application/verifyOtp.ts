@@ -6,6 +6,7 @@
  */
 
 import { withPlatform } from '../../../db/rls';
+import { recordAuthEvent } from '../../../db/audit';
 import {
   type Result,
   ok,
@@ -55,6 +56,7 @@ export interface VerifyOtpInput {
   code: string;
   ip?: string;
   userAgent?: string;
+  requestId?: string | undefined;
 }
 
 export interface VerifyOtpDeps {
@@ -88,22 +90,56 @@ export async function verifyOtp(
   // distinguishable from an unknown one.
   if (!identifier.ok) return err(IdentityErrors.INVALID_CODE);
 
+  const meta = { requestId: input.requestId, ip: input.ip, userAgent: input.userAgent };
+
   return withPlatform('login: verify an OTP challenge and open a session', async (tx) => {
+    /*
+     * Every rejection is recorded, and all of them return the same neutral
+     * error to the caller. The audit trail is where the difference lives —
+     * "wrong code" and "unknown number" are the same 400 to an attacker and
+     * two very different rows to an investigator.
+     */
+    const refuse = async (
+      reason: string,
+      extra: { accountId?: string; credentialId?: string } = {},
+    ): Promise<void> => {
+      await recordAuthEvent(tx, {
+        ...meta,
+        ...extra,
+        type: 'otp.verified',
+        outcome: 'failure',
+        identifier: identifier.value.value,
+        reason,
+      });
+    };
+
     const cred = await credentials.byIdentifier(
       tx,
       identifier.value.kind,
       identifier.value.value,
     );
-    if (!cred) return err(IdentityErrors.INVALID_CODE);
+    if (!cred) {
+      await refuse('unknown_identifier');
+      return err(IdentityErrors.INVALID_CODE);
+    }
+
+    const ids = { accountId: cred.accountId, credentialId: cred.id };
 
     const acct = await accounts.byId(tx, cred.accountId);
-    if (!acct || acct.status !== 'active') return err(IdentityErrors.INVALID_CODE);
+    if (!acct || acct.status !== 'active') {
+      await refuse('account_inactive', ids);
+      return err(IdentityErrors.INVALID_CODE);
+    }
     if (acct.lockedUntil && acct.lockedUntil.getTime() > now.getTime()) {
+      await refuse('account_locked', ids);
       return err(IdentityErrors.ACCOUNT_LOCKED);
     }
 
     const live = await otpChallenges.liveFor(tx, cred.id, now);
-    if (!live) return err(IdentityErrors.INVALID_CODE);
+    if (!live) {
+      await refuse('no_live_challenge', ids);
+      return err(IdentityErrors.INVALID_CODE);
+    }
 
     const verdict = verifyChallenge(
       {
@@ -121,6 +157,7 @@ export async function verifyOtp(
       // The attempt is recorded even for an expired or consumed challenge, so
       // the counter cannot be reset by racing a stale one.
       await otpChallenges.recordAttempt(tx, live.id);
+      await refuse(`challenge_${verdict.kind}`, ids);
       return err(IdentityErrors.INVALID_CODE);
     }
 
@@ -132,6 +169,7 @@ export async function verifyOtp(
     if (contexts.length === 0) {
       // The account exists but belongs nowhere. A neutral 403 — there is
       // nothing for this person to be shown.
+      await refuse('no_membership', ids);
       return err(IdentityErrors.NO_MEMBERSHIP);
     }
 
@@ -157,6 +195,16 @@ export async function verifyOtp(
     }
 
     await accounts.recordSuccessfulLogin(tx, cred.accountId);
+
+    await recordAuthEvent(tx, {
+      ...meta,
+      ...ids,
+      type: 'session.created',
+      outcome: 'success',
+      sessionId: created?.id,
+      identifier: identifier.value.value,
+      detail: { method: 'otp', autoActivated: Boolean(only), contexts: contexts.length },
+    });
 
     return ok({
       sessionToken: token,

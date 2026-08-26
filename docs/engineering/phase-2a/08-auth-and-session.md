@@ -201,4 +201,10 @@ Auth is done for 3a when:
    both** — the case the whole model exists for.
 4. Revoking a session takes effect on the next request.
 5. Lockout, rate limits and enumeration-resistance are covered by tests.
-6. Every authentication event appears in `audit_log`.
+6. Every authentication event appears in `auth_event`.
+
+> **Correction, Phase 3a.** Item 6 originally said `audit_log`. It cannot:
+> `audit_log.tenant_id` is `NOT NULL` and RLS-enforced, while authentication
+> happens before a tenant is known. Authentication is audited globally in
+> `auth_event` instead —
+> [ADR-0033](../../architecture/adr/0033-two-audit-trails.md).
