@@ -311,7 +311,14 @@ describe('the student lifecycle', () => {
   }, 60_000);
 
   it('refuses a no-op rather than writing an event that claims a change', async () => {
-    const r = await transitionStudentStatus(principal, { studentId, to: 'on_leave' }, { clock });
+    // With a reason, so this isolates the no-op check. Without one it trips
+    // the reason check first, which runs before the lookup on purpose: the
+    // caller should be told what is missing before being told what is absent.
+    const r = await transitionStudentStatus(
+      principal,
+      { studentId, to: 'on_leave', reason: 'already on leave, trying again' },
+      { clock },
+    );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe(TransitionErrors.ALREADY_IN_STATUS.code);
   }, 60_000);
