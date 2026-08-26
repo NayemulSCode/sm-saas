@@ -31,6 +31,10 @@ CREATE TABLE promotion_batch (
     CHECK (undone_at IS NULL OR undo_reason IS NOT NULL)
 );
 SELECT app.make_tenant_table('promotion_batch');
+-- Needed before anything can point at it with a composite key: tenantize_fk
+-- references (tenant_id, id) and does not create the parent's unique key
+-- itself. 0009 does this per table for the same reason.
+SELECT app.add_tenant_id_unique('promotion_batch');
 
 CREATE INDEX promotion_batch_section_idx
   ON promotion_batch (tenant_id, source_section_id, from_year_id);
