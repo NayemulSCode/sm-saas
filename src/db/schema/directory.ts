@@ -61,6 +61,8 @@ export const enrolment = pgTable('enrolment', {
   rollNo: integer('roll_no'),
   enrolledOn: localDate('enrolled_on').notNull(),
   leftOn: localDate('left_on'),
+  /** Which promotion run created this row, so undo finds exactly those. */
+  promotionBatchId: ulidCol<'promotionBatch'>('promotion_batch_id'),
   outcome: text('outcome', {
     enum: ['promoted', 'retained', 'transferred', 'withdrawn'],
   }),
