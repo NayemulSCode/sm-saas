@@ -31,8 +31,8 @@
 -- table is created with app.make_tenant_table: that adds updated_at,
 -- deleted_at, delete_reason and version, every one of which is a lie on a row
 -- that must never change. The app roles are granted SELECT and INSERT and
--- nothing else, and UPDATE/DELETE are revoked explicitly rather than merely
--- withheld, so the intent survives a future blanket GRANT.
+-- nothing else. A one-off REVOKE is not enough — see the privileges section at
+-- the foot of this file for why, and what replaced it.
 
 SET lock_timeout = '3s';
 SET statement_timeout = '5min';
@@ -128,15 +128,61 @@ CREATE INDEX audit_log_entity_idx
 CREATE INDEX audit_log_at_idx ON audit_log (tenant_id, at DESC);
 
 -- ── Append-only privileges ──────────────────────────────────────────────────
+--
+-- A plain REVOKE here is NOT enough, and the isolation suite proved it: any
+-- later blanket `GRANT ... ON ALL TABLES IN SCHEMA public` silently hands
+-- UPDATE and DELETE straight back. scripts/dev-set-role-passwords.ts does
+-- exactly that, and so will any provisioning script written in a hurry at
+-- 02:00.
+--
+-- So which tables are append-only is DATA, kept in the catalogue, and
+-- re-asserting it is one idempotent call that any such script must end with.
 
-GRANT SELECT, INSERT ON auth_event TO sm_app, sm_platform;
-GRANT SELECT, INSERT ON audit_log  TO sm_app, sm_platform;
-GRANT SELECT ON auth_event, audit_log TO sm_readonly;
+CREATE TABLE app.append_only_table (
+  relname    text PRIMARY KEY,
+  registered timestamptz NOT NULL DEFAULT now()
+);
 
--- Explicit, not merely absent: this states the intent in the schema, and it
--- survives someone later running app.grant_table_access on these tables.
-REVOKE UPDATE, DELETE, TRUNCATE ON auth_event FROM sm_app, sm_platform, sm_readonly, PUBLIC;
-REVOKE UPDATE, DELETE, TRUNCATE ON audit_log  FROM sm_app, sm_platform, sm_readonly, PUBLIC;
+/* Re-applies the append-only revocation to every registered table. Idempotent,
+ * and safe to call after any grant. */
+CREATE OR REPLACE FUNCTION app.enforce_append_only() RETURNS void
+  LANGUAGE plpgsql AS $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT relname FROM app.append_only_table LOOP
+    EXECUTE format(
+      'REVOKE UPDATE, DELETE, TRUNCATE ON %I FROM sm_app, sm_platform, sm_readonly, PUBLIC',
+      r.relname);
+  END LOOP;
+END $$;
+
+/* Registers a table as append-only and applies the grants it should have. */
+CREATE OR REPLACE FUNCTION app.make_append_only(target regclass) RETURNS void
+  LANGUAGE plpgsql AS $$
+DECLARE tbl text := target::text;
+BEGIN
+  EXECUTE format('GRANT SELECT, INSERT ON %s TO sm_app, sm_platform', tbl);
+  EXECUTE format('GRANT SELECT ON %s TO sm_readonly', tbl);
+  INSERT INTO app.append_only_table (relname) VALUES (tbl) ON CONFLICT DO NOTHING;
+  PERFORM app.enforce_append_only();
+END $$;
+
+SELECT app.make_append_only('auth_event');
+SELECT app.make_append_only('audit_log');
+
+-- Fail the MIGRATION rather than discovering it in a test three steps later.
+DO $$
+BEGIN
+  IF has_table_privilege('sm_app', 'audit_log', 'UPDATE')
+     OR has_table_privilege('sm_app', 'audit_log', 'DELETE')
+     OR has_table_privilege('sm_app', 'auth_event', 'UPDATE')
+     OR has_table_privilege('sm_app', 'auth_event', 'DELETE') THEN
+    RAISE EXCEPTION 'audit tables must be append-only for sm_app';
+  END IF;
+  IF NOT has_table_privilege('sm_app', 'audit_log', 'INSERT') THEN
+    RAISE EXCEPTION 'sm_app must still be able to WRITE the audit trail';
+  END IF;
+END $$;
 
 COMMENT ON TABLE auth_event IS
   'Append-only. Global authentication trail — no tenant_id by design (ADR-0033).';

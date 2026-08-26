@@ -87,11 +87,21 @@ Neither is created with `app.make_tenant_table`. That helper adds `updated_at`,
 `deleted_at`, `delete_reason` and `version`, every one of which is a lie on a
 row that must never change.
 
-`sm_app` and `sm_platform` are granted `SELECT` and `INSERT` and nothing else,
-and `UPDATE`/`DELETE`/`TRUNCATE` are **explicitly revoked** rather than merely
-withheld — so the intent survives someone later running
-`app.grant_table_access` on these tables. The isolation suite proves the refusal
-rather than assuming it.
+`sm_app` and `sm_platform` are granted `SELECT` and `INSERT` and nothing else.
+
+A one-off `REVOKE` in the migration was the first attempt and it did not hold:
+`scripts/dev-set-role-passwords.ts` runs afterwards with
+`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public`, which
+handed both privileges straight back. The isolation suite caught it on the first
+CI run — the append-only claim was false for about an hour, and only a test that
+actually attempted an `UPDATE` would have noticed.
+
+So which tables are append-only is now **data**, in `app.append_only_table`, and
+`app.enforce_append_only()` re-asserts the revocation for every registered
+table. It is idempotent, any script that grants broadly ends with it, and a
+table registered by a future migration is covered without editing those scripts.
+The migration also fails outright if `sm_app` can `UPDATE` either table when it
+finishes, so the hole cannot reopen quietly.
 
 ### Redaction is enforced, not requested
 

@@ -43,7 +43,18 @@ try {
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO sm_readonly;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sm_app, sm_platform;
   `);
-  console.log('granted table access to sm_app, sm_readonly, sm_platform');
+
+  /*
+   * ON ALL TABLES includes audit_log and auth_event, so the blanket grant above
+   * hands back the UPDATE and DELETE that migration 0011 revoked — silently,
+   * and the audit trail stops being append-only.
+   *
+   * Any script that grants broadly must end with this call. It is idempotent
+   * and reads the list from app.append_only_table, so a table registered by a
+   * future migration is covered without editing this file.
+   */
+  await pool.query('SELECT app.enforce_append_only()');
+  console.log('granted table access, then re-asserted the append-only tables');
 } finally {
   await pool.end();
 }
