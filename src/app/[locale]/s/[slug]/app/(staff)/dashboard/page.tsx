@@ -155,6 +155,11 @@ export default async function DashboardPage({
             Promotion
           </Link>
         )}
+        {can(ctx.value, 'student.merge') && (
+          <Link href={`${base}/duplicates`} className="underline">
+            Duplicates
+          </Link>
+        )}
       </nav>
 
       <header className="mb-6">

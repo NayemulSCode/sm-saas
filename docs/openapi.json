@@ -3056,6 +3056,162 @@
         ]
       }
     },
+    "/api/v1/duplicates/persons": {
+      "get": {
+        "tags": [
+          "People"
+        ],
+        "summary": "Possible duplicate people",
+        "description": "Proposed pairs with the evidence that proposed each one — a shared birth registration number, or a shared name together with a date of birth or a phone number. Name alone is deliberately not a signal: it is far too noisy to review. Decides nothing; the surviving record is whichever id the caller then puts in the merge path.\n\n**Permission:** `student.merge`",
+        "operationId": "get_api_v1_duplicates_persons",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 25, maximum 100.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of `{ evidence, left, right, suggestedWinner }`. Each side carries `students`, `guardianLinks`, `staff`, `memberships` and `attachedTo` — the counts and the NAMES of what would move if that side lost. The names matter because a proposed pair has identical names by construction; the children behind each record are what distinguishes them. `suggestedWinner` is advice for a screen, never applied by the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/merges": {
+      "get": {
+        "tags": [
+          "People"
+        ],
+        "summary": "Merges already made",
+        "description": "Newest first, with the names on both sides and the ids that moved. A reversal reachable only from the response that performed the merge keeps its promise for nobody but the person who ran it.\n\n**Permission:** `student.merge`",
+        "operationId": "get_api_v1_merges",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 10, maximum 50.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of `{ id, winnerPersonId, loserPersonId, names, moved, reason, reversedAt, reverseReason, at }`. A reversed merge stays listed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/persons/{personId}/merge": {
       "post": {
         "tags": [

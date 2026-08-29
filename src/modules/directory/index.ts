@@ -46,6 +46,15 @@ export {
   type MergePersonsInput,
 } from './application/mergePersons';
 
+export {
+  reviewDuplicates,
+  listMerges,
+  type DuplicatePair,
+  type DuplicateSide,
+  type MergeRow,
+  type Evidence,
+} from './application/reviewDuplicates';
+
 export { getStudent } from './application/getStudent';
 
 export {
