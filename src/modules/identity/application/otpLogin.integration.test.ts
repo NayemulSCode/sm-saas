@@ -22,8 +22,20 @@ import { OTP } from '../domain/otp';
 const ADMIN_URL = process.env.DATABASE_URL_MIGRATOR;
 const PLATFORM_URL = process.env.DATABASE_URL_PLATFORM;
 
-const PHONE = '+8801711223344';
-const UNKNOWN_PHONE = '+8801799999999';
+/*
+ * Per-run natural keys: slugs, plan codes and phone numbers all carry unique
+ * constraints, and every fixture insert here says `ON CONFLICT DO NOTHING`.
+ * Hold them constant and run two silently skips the insert, leaving the
+ * freshly generated id pointing at nothing — which surfaces later as a foreign
+ * key violation on an unrelated table, or as NO_ACTIVE_CONTEXT once an account
+ * has collected a membership per run. CI starts from an empty database and
+ * never sees any of it.
+ */
+const STAMP = Date.now();
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const PHONE = phone('720');
+const UNKNOWN_PHONE = phone('721');
 
 const id = () => Ids.generate<'x'>();
 const PLAN = id();
@@ -75,13 +87,13 @@ beforeAll(async () => {
   // then exercises runs through the module's own connections.
   await admin.query(
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
-     VALUES ($1,'otp-int','পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
-    [uuid(PLAN)],
+     VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
+    [uuid(PLAN), `otp-int-${STAMP}`],
   );
 
   for (const [t, slug] of [
-    [TENANT_A, 'otp-int-a'],
-    [TENANT_B, 'otp-int-b'],
+    [TENANT_A, `otp-int-a-${STAMP}`],
+    [TENANT_B, `otp-int-b-${STAMP}`],
   ] as const) {
     await admin.query(
       `INSERT INTO tenant (id, slug, name_bn, name_en, plan_id, status)
@@ -136,7 +148,11 @@ afterAll(async () => {
 describe('OTP login', () => {
   it('issues a challenge and dispatches a six-digit code', async () => {
     dispatcher.clear();
-    const result = await requestOtp({ identifier: '01711223344' }, deps);
+    // The national form of PHONE, derived rather than written out: the point of
+    // this test is that `01…` normalises to the stored `+880…`, and a literal
+    // stops testing that the moment the number becomes per-run.
+    const national = PHONE.slice(3);
+    const result = await requestOtp({ identifier: national }, deps);
 
     expect(result.ok).toBe(true);
     expect(dispatcher.sent).toHaveLength(1);

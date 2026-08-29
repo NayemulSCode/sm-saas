@@ -56,7 +56,16 @@ const uuid = (v: string) => Ids.toUuid(v as never);
 
 const STAMP = Date.now();
 const PLAN_CODE = `dir-${STAMP}`;
-const OWNER_PHONE = '+8801766000111';
+/*
+ * Phones are stamped for the same reason the slug and the plan code already
+ * are. A phone is unique as a LOGIN IDENTIFIER across tenants, so a fixed one
+ * hands run N+1 the account run N created — now holding N memberships. Login
+ * then resolves to several contexts, activates none, and the suite dies on
+ * NO_ACTIVE_CONTEXT. CI starts from an empty database and never sees it.
+ */
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const OWNER_PHONE = phone('610');
 
 let admin: Pool;
 let principal: AuthContext;

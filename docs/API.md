@@ -83,6 +83,7 @@ endpoints. It is never in a response body and cannot be read from script.
 | | Endpoint | Permission |
 |---|---|---|
 | `POST` | [`/api/v1/sections/{sectionId}/promote`](#post-api-v1-sections-sectionId-promote) | `enrolment.promote` |
+| `GET` | [`/api/v1/promotions`](#get-api-v1-promotions) | `enrolment.promote` |
 | `POST` | [`/api/v1/promotions/{batchId}/undo`](#post-api-v1-promotions-batchId-undo) | `enrolment.promote` |
 
 ### People
@@ -1341,6 +1342,22 @@ _Permission: `enrolment.promote`_
 | 409 | `SECTION_EMPTY` | Nobody in that section and year is awaiting an outcome. |
 | 400 | `UNKNOWN_EXCEPTION` | An exception names a student who is not in the section — usually the wrong section. |
 | 400 | `SAME_YEAR` | Cannot promote into the year being promoted from. |
+
+### `GET /api/v1/promotions`
+
+**Recent promotion runs**
+
+The last few runs, newest first — what can still be taken back. Guarded by `enrolment.promote` rather than a read permission, because deciding what to undo is its only purpose.
+
+_Permission: `enrolment.promote`_
+
+**Query**
+
+| Name | Meaning |
+|---|---|
+| `limit` | Default 10, maximum 50. |
+
+**200** — An array of `{ id, sectionNameEn, className, fromYearName, toYearName, promoted, retained, transferred, withdrawn, undoneAt, undoReason, at }`. A batch whose section or year has since been removed still appears, with nulls for the names — it is still undoable.
 
 ### `POST /api/v1/promotions/{batchId}/undo`
 

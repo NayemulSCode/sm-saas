@@ -448,6 +448,23 @@ describe('promotion and its undo', () => {
     expect(body.enrolled).toBe(3);
   }, 120_000);
 
+  it('lists the run, so it can be undone from somewhere else later', async () => {
+    const res = await get('/api/v1/promotions');
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+
+    const runs = data<
+      Array<{ id: string; className: string | null; promoted: number; undoneAt: string | null }>
+    >(res.json);
+    const mine = runs.find((r) => r.id === batchId);
+
+    // Undo is only a real promise if the batch survives the screen that made
+    // it: "we ran it on the wrong section" is realised after the tab is shut.
+    expect(mine, 'the run must be findable after the fact').toBeDefined();
+    expect(mine!.undoneAt).toBeNull();
+    expect(mine!.promoted).toBe(3);
+    expect(mine!.className).not.toBeNull();
+  }, 30_000);
+
   it('undoes the run, and refuses to undo it twice', async () => {
     const first = await post(`/api/v1/promotions/${batchId}/undo`, {
       reason: 'ran it on the wrong section',
@@ -459,6 +476,19 @@ describe('promotion and its undo', () => {
     expect(second.status).toBe(409);
     expect(errorCode(second.json)).toBe('BATCH_ALREADY_UNDONE');
   }, 60_000);
+
+  it('keeps the undone run listed, with the reason it was taken back', async () => {
+    const runs = data<Array<{ id: string; undoneAt: string | null; undoReason: string | null }>>(
+      (await get('/api/v1/promotions')).json,
+    );
+    const mine = runs.find((r) => r.id === batchId);
+
+    // Not hidden once reversed. A batch that vanishes on undo takes the record
+    // of the mistake with it, and somebody has to explain the mistake.
+    expect(mine).toBeDefined();
+    expect(mine!.undoneAt).not.toBeNull();
+    expect(mine!.undoReason).toBe('ran it on the wrong section');
+  }, 30_000);
 });
 
 describe('roles', () => {
@@ -1136,6 +1166,36 @@ describe('the structure and staff pages', () => {
    * does not catch it — the broken path contains that substring too. So this
    * asserts the shape of every href, and then actually follows them.
    */
+  it('renders the promotion page with the section chooser', async () => {
+    const { status, html } = await page('/app/promotions');
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain('Promotion');
+    expect(html).toContain('Show the roster');
+    // Says plainly what promotion does NOT do. Somebody will assume it settles
+    // dues, and the assumption is expensive.
+    expect(html).toMatch(/dues are not touched/i);
+  }, 60_000);
+
+  it('shows the roster only once a section and year are chosen', async () => {
+    const bare = await page('/app/promotions');
+    // Nothing moves before the names are on screen: a form that promotes a
+    // section picked from a dropdown, unseen, is how the wrong one goes.
+    expect(bare.html).not.toContain('Review');
+
+    /*
+     * sectionB in nextYearId, because the undo above put those enrolments
+     * back — undo removes only the enrolments a run CREATED, so the source
+     * cohort is exactly where it was. currentYearId is closed and empty by now.
+     */
+    const chosen = await page(
+      `/app/promotions?fromYearId=${nextYearId}&sectionId=${sectionB}`,
+    );
+    expect(chosen.status).toBe(200);
+    expect(chosen.html).toContain('Outcome');
+    expect(chosen.html).toContain('Review');
+  }, 60_000);
+
   it('links to public paths that carry no slug', async () => {
     const { html } = await page('/app/dashboard');
 

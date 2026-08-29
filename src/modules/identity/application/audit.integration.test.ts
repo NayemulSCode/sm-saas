@@ -41,9 +41,21 @@ const STAFF_PERSON = nid<'person'>();
 const ADMIN_ACCOUNT = nid<'account'>();
 
 /** Real-looking, and therefore exactly what must not appear in the tables. */
-const KNOWN_PHONE = '+8801912345678';
-const UNKNOWN_PHONE = '+8801987654321';
-const STAFF_EMAIL = 'audit-subject@audit-int.example.bd';
+/*
+ * Per-run natural keys: slugs, plan codes and phone numbers all carry unique
+ * constraints, and every fixture insert here says `ON CONFLICT DO NOTHING`.
+ * Hold them constant and run two silently skips the insert, leaving the
+ * freshly generated id pointing at nothing — which surfaces later as a foreign
+ * key violation on an unrelated table, or as NO_ACTIVE_CONTEXT once an account
+ * has collected a membership per run. CI starts from an empty database and
+ * never sees any of it.
+ */
+const STAMP = Date.now();
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const KNOWN_PHONE = phone('710');
+const UNKNOWN_PHONE = phone('711');
+const STAFF_EMAIL = `audit-subject-${STAMP}@audit-int.example.bd`;
 const CHOSEN_PASSWORD = 'the password nobody should be able to read';
 
 let admin: Pool;
@@ -84,13 +96,13 @@ beforeAll(async () => {
 
   await admin.query(
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
-     VALUES ($1,'audit-int','পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
-    [uuid(PLAN)],
+     VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
+    [uuid(PLAN), `audit-int-${STAMP}`],
   );
   await admin.query(
     `INSERT INTO tenant (id, slug, name_bn, name_en, plan_id, status)
-     VALUES ($1,'audit-int','বিদ্যালয়','School',$2,'active') ON CONFLICT DO NOTHING`,
-    [uuid(TENANT), uuid(PLAN)],
+     VALUES ($1,$3,'বিদ্যালয়','School',$2,'active') ON CONFLICT DO NOTHING`,
+    [uuid(TENANT), uuid(PLAN), `audit-int-${STAMP}`],
   );
   for (const p of [ADMIN_PERSON, STAFF_PERSON]) {
     await admin.query(

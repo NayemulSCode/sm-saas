@@ -25,8 +25,24 @@ import { Ids } from '../../../shared/ids';
 const ADMIN_URL = process.env.DATABASE_URL_MIGRATOR;
 const PLATFORM_URL = process.env.DATABASE_URL_PLATFORM;
 
-const PHONE = '+8801811223344';
-const OTHER_PHONE = '+8801822334455';
+/*
+ * Per-run natural keys: slugs, plan codes and phone numbers all carry unique
+ * constraints, and every fixture insert here says `ON CONFLICT DO NOTHING`.
+ * Hold them constant and run two silently skips the insert, leaving the
+ * freshly generated id pointing at nothing — which surfaces later as a foreign
+ * key violation on an unrelated table, or as NO_ACTIVE_CONTEXT once an account
+ * has collected a membership per run. CI starts from an empty database and
+ * never sees any of it.
+ */
+const STAMP = Date.now();
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const SLUG_A = `switch-a-${STAMP}`;
+const SLUG_B = `switch-b-${STAMP}`;
+const SLUG_SUSPENDED = `switch-susp-${STAMP}`;
+
+const PHONE = phone('740');
+const OTHER_PHONE = phone('741');
 
 const nid = <T extends string = 'x'>() => Ids.generate<T>();
 const uuid = (v: string) => Ids.toUuid(v as never);
@@ -107,13 +123,13 @@ beforeAll(async () => {
 
   await admin.query(
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
-     VALUES ($1,'switch-int','পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
-    [uuid(PLAN)],
+     VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
+    [uuid(PLAN), `switch-int-${STAMP}`],
   );
 
-  await seedTenant(TENANT_A, 'switch-a', 'active');
-  await seedTenant(TENANT_B, 'switch-b', 'active');
-  await seedTenant(TENANT_SUSPENDED, 'switch-susp', 'suspended');
+  await seedTenant(TENANT_A, SLUG_A, 'active');
+  await seedTenant(TENANT_B, SLUG_B, 'active');
+  await seedTenant(TENANT_SUSPENDED, SLUG_SUSPENDED, 'suspended');
 
   await seedPerson(PERSON_A, TENANT_A);
   await seedPerson(PERSON_B, TENANT_B);
@@ -183,7 +199,7 @@ describe('listContexts', () => {
     const slugs = r.value.map((c) => c.tenantSlug).sort();
     // The suspended tenant IS listed: a suspended tenant keeps read access and
     // export (invariant 14). Only purged and cancelled disappear.
-    expect(slugs).toEqual(['switch-a', 'switch-b', 'switch-susp']);
+    expect(slugs).toEqual([SLUG_A, SLUG_B, SLUG_SUSPENDED]);
     expect(r.value.every((c) => c.personNameBn.length > 0)).toBe(true);
   });
 
@@ -200,7 +216,7 @@ describe('switchContext', () => {
     const r = await switchContext(token, MEMBERSHIP_B, sessionDeps);
     expect(r.ok, JSON.stringify(r)).toBe(true);
     if (!r.ok) return;
-    expect(r.value.tenantSlug).toBe('switch-b');
+    expect(r.value.tenantSlug).toBe(SLUG_B);
 
     const { rows } = await admin.query<{ active_membership_id: string }>(
       `SELECT active_membership_id FROM session
@@ -218,7 +234,7 @@ describe('switchContext', () => {
 
     const active = r.value.filter((c) => c.isActive);
     expect(active).toHaveLength(1);
-    expect(active[0]?.tenantSlug).toBe('switch-a');
+    expect(active[0]?.tenantSlug).toBe(SLUG_A);
   });
 
   /**

@@ -75,6 +75,11 @@ export default async function DashboardPage({
         <Link href={`${base}/staff`} className="underline">
           Staff
         </Link>
+        {can(ctx.value, 'enrolment.promote') && (
+          <Link href={`${base}/promotions`} className="underline">
+            Promotion
+          </Link>
+        )}
       </nav>
 
       <header className="mb-6">

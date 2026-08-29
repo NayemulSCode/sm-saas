@@ -33,9 +33,18 @@ const uuid = (v: string) => Ids.toUuid(v as never);
 
 const STAMP = Date.now();
 const PLAN_CODE = `grant-${STAMP}`;
-const OWNER_PHONE = '+8801744000111';
-const CLERK_PHONE = '+8801744000222';
-const TEACHER_PHONE = '+8801744000333';
+/*
+ * Phones are stamped for the same reason the slug and the plan code already
+ * are. A phone is unique as a LOGIN IDENTIFIER across tenants, so a fixed one
+ * hands run N+1 the account run N created — now holding N memberships. Login
+ * then resolves to several contexts, activates none, and the suite dies on
+ * NO_ACTIVE_CONTEXT. CI starts from an empty database and never sees it.
+ */
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const OWNER_PHONE = phone('420');
+const CLERK_PHONE = phone('421');
+const TEACHER_PHONE = phone('422');
 
 let admin: Pool;
 let operator: PlatformContext;
