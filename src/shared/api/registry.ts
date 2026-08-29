@@ -503,6 +503,34 @@ export const ENDPOINTS: Endpoint[] = [
 
   // ── merging ────────────────────────────────────────────────────────────────
   {
+    method: 'GET',
+    path: '/api/v1/duplicates/persons',
+    tag: 'People',
+    summary: 'Possible duplicate people',
+    description:
+      'Proposed pairs with the evidence that proposed each one — a shared birth registration number, or a shared name together with a date of birth or a phone number. Name alone is deliberately not a signal: it is far too noisy to review. Decides nothing; the surviving record is whichever id the caller then puts in the merge path.',
+    permission: 'student.merge',
+    query: [{ name: 'limit', description: 'Default 25, maximum 100.' }],
+    successStatus: 200,
+    returns:
+      'An array of `{ evidence, left, right, suggestedWinner }`. Each side carries `students`, `guardianLinks`, `staff`, `memberships` and `attachedTo` — the counts and the NAMES of what would move if that side lost. The names matter because a proposed pair has identical names by construction; the children behind each record are what distinguishes them. `suggestedWinner` is advice for a screen, never applied by the server.',
+    failures: [],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/merges',
+    tag: 'People',
+    summary: 'Merges already made',
+    description:
+      'Newest first, with the names on both sides and the ids that moved. A reversal reachable only from the response that performed the merge keeps its promise for nobody but the person who ran it.',
+    permission: 'student.merge',
+    query: [{ name: 'limit', description: 'Default 10, maximum 50.' }],
+    successStatus: 200,
+    returns:
+      'An array of `{ id, winnerPersonId, loserPersonId, names, moved, reason, reversedAt, reverseReason, at }`. A reversed merge stays listed.',
+    failures: [],
+  },
+  {
     method: 'POST',
     path: '/api/v1/persons/{personId}/merge',
     tag: 'People',

@@ -1294,6 +1294,164 @@ describe('the structure and staff pages', () => {
   }, 60_000);
 });
 
+describe('finding and merging duplicate people', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+  let mergeId: string;
+  let winnerId: string;
+  let loserId: string;
+
+  const page = (path: string): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost, cookie } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (c: string) => (body += c));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('proposes nothing when there is nothing to propose', async () => {
+    const res = await get('/api/v1/duplicates/persons');
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+    // The fixtures so far contain no two people sharing a name and a number.
+    expect(data<unknown[]>(res.json)).toHaveLength(0);
+  }, 30_000);
+
+  it('spots the same guardian entered twice, one child each', async () => {
+    /*
+     * The scenario the module exists for: a mother registered a year apart,
+     * once per child. Same name, same handset, two person rows — so the family
+     * gets two SMS and misses the sibling discount.
+     */
+    const students = data<{ items: Array<{ id: string }> }>(
+      (await get('/api/v1/students?limit=5')).json,
+    ).items;
+    expect(students.length).toBeGreaterThanOrEqual(2);
+
+    for (const st of students.slice(0, 2)) {
+      const linked = await post(`/api/v1/students/${st.id}/guardians`, {
+        person: {
+          nameBn: 'রেহানা পারভীন',
+          nameEn: 'Rehana Parvin',
+          phone: `+88016${String(STAMP).slice(-8)}`,
+        },
+        relationship: 'mother',
+      });
+      expect(linked.status, JSON.stringify(linked.json)).toBe(201);
+    }
+
+    const res = await get('/api/v1/duplicates/persons');
+    const pairs = data<
+      Array<{
+        evidence: string;
+        left: { personId: string; attachedTo: string[]; guardianLinks: number };
+        right: { personId: string; attachedTo: string[] };
+        suggestedWinner: string;
+      }>
+    >(res.json);
+
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0]!.evidence).toBe('name_and_phone');
+    expect(pairs[0]!.left.guardianLinks).toBe(1);
+
+    /*
+     * The names on a proposed pair are identical by construction. The CHILDREN
+     * are what lets a reviewer tell the two records apart, so a pair that does
+     * not carry them is a pair nobody can act on.
+     */
+    expect(pairs[0]!.left.attachedTo).toHaveLength(1);
+    expect(pairs[0]!.right.attachedTo).toHaveLength(1);
+    expect(pairs[0]!.left.attachedTo[0]).not.toBe(pairs[0]!.right.attachedTo[0]);
+
+    // ULIDs, not the uuids the rows are stored as — these ids are posted
+    // straight back to the merge endpoint, which rejects anything else.
+    winnerId = pairs[0]!.left.personId;
+    loserId = pairs[0]!.right.personId;
+    for (const id of [winnerId, loserId]) expect(id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+  }, 120_000);
+
+  it('renders the queue with the evidence and both children', async () => {
+    const { status, html } = await page('/app/duplicates');
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain('Possible duplicates');
+    expect(html).toContain('Same name and phone number');
+    // Nothing is chosen for the reviewer, however strong the evidence.
+    expect(html).toContain('Choose which record to keep');
+  }, 60_000);
+
+  it('merges them, and the pair leaves the queue', async () => {
+    const merged = await post(`/api/v1/persons/${winnerId}/merge`, {
+      loserPersonId: loserId,
+      reason: 'Same mother entered twice, one child each',
+    });
+    expect(merged.status, JSON.stringify(merged.json)).toBe(200);
+
+    const body = data<{ mergeId: string; moved: Record<string, number> }>(merged.json);
+    mergeId = body.mergeId;
+    expect(body.moved['guardianLinks']).toBe(1);
+
+    const after = data<unknown[]>((await get('/api/v1/duplicates/persons')).json);
+    expect(after, 'a merged pair must not be proposed again').toHaveLength(0);
+  }, 60_000);
+
+  it('refuses a record into itself, and one that already lost', async () => {
+    const self = await post(`/api/v1/persons/${winnerId}/merge`, {
+      loserPersonId: winnerId,
+      reason: 'a record into itself',
+    });
+    expect(self.status).toBe(400);
+    expect(errorCode(self.json)).toBe('SAME_PERSON');
+
+    const again = await post(`/api/v1/persons/${winnerId}/merge`, {
+      loserPersonId: loserId,
+      reason: 'one that already lost a merge',
+    });
+    expect(again.status).toBe(409);
+    expect(errorCode(again.json)).toBe('ALREADY_MERGED');
+  }, 60_000);
+
+  it('lists the merge, so somebody else can reverse it later', async () => {
+    const merges = data<Array<{ id: string; moved: Record<string, string[]>; reversedAt: null }>>(
+      (await get('/api/v1/merges')).json,
+    );
+    const mine = merges.find((m) => m.id === mergeId);
+
+    expect(mine, 'the merge must be findable after the fact').toBeDefined();
+    expect(mine!.reversedAt).toBeNull();
+    // The ids that moved, not a count — a reversal puts back exactly these.
+    expect(mine!.moved['guardianLinks']).toHaveLength(1);
+  }, 30_000);
+
+  it('puts it back, refuses to do it twice, and the pair returns', async () => {
+    const first = await post(`/api/v1/merges/${mergeId}/reverse`, {
+      reason: 'they are two different mothers after all',
+    });
+    expect(first.status, JSON.stringify(first.json)).toBe(200);
+
+    const second = await post(`/api/v1/merges/${mergeId}/reverse`, { reason: 'again' });
+    expect(second.status).toBe(409);
+    expect(errorCode(second.json)).toBe('MERGE_ALREADY_REVERSED');
+
+    const restored = data<unknown[]>((await get('/api/v1/duplicates/persons')).json);
+    expect(restored, 'reversing restores the duplicate, and the proposal').toHaveLength(1);
+
+    // Reversed, but still listed: a merge that vanishes on reversal takes the
+    // record of the mistake with it.
+    const merges = data<Array<{ id: string; reversedAt: string | null; reverseReason: string }>>(
+      (await get('/api/v1/merges')).json,
+    );
+    const mine = merges.find((m) => m.id === mergeId);
+    expect(mine!.reversedAt).not.toBeNull();
+    expect(mine!.reverseReason).toBe('they are two different mothers after all');
+  }, 120_000);
+});
+
 describe('accepting an invite', () => {
   const tenantHost = `api-${STAMP}.localhost:3125`;
   let token: string;

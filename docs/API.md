@@ -90,6 +90,8 @@ endpoints. It is never in a response body and cannot be read from script.
 
 | | Endpoint | Permission |
 |---|---|---|
+| `GET` | [`/api/v1/duplicates/persons`](#get-api-v1-duplicates-persons) | `student.merge` |
+| `GET` | [`/api/v1/merges`](#get-api-v1-merges) | `student.merge` |
 | `POST` | [`/api/v1/persons/{personId}/merge`](#post-api-v1-persons-personId-merge) | `student.merge` |
 | `POST` | [`/api/v1/merges/{mergeId}/reverse`](#post-api-v1-merges-mergeId-reverse) | `student.merge` |
 
@@ -1398,6 +1400,38 @@ _Permission: `enrolment.promote`_
 > A leaver’s status is NOT restored. Reversing a lifecycle event needs its own decision and its own reason.
 
 ## People
+
+### `GET /api/v1/duplicates/persons`
+
+**Possible duplicate people**
+
+Proposed pairs with the evidence that proposed each one — a shared birth registration number, or a shared name together with a date of birth or a phone number. Name alone is deliberately not a signal: it is far too noisy to review. Decides nothing; the surviving record is whichever id the caller then puts in the merge path.
+
+_Permission: `student.merge`_
+
+**Query**
+
+| Name | Meaning |
+|---|---|
+| `limit` | Default 25, maximum 100. |
+
+**200** — An array of `{ evidence, left, right, suggestedWinner }`. Each side carries `students`, `guardianLinks`, `staff`, `memberships` and `attachedTo` — the counts and the NAMES of what would move if that side lost. The names matter because a proposed pair has identical names by construction; the children behind each record are what distinguishes them. `suggestedWinner` is advice for a screen, never applied by the server.
+
+### `GET /api/v1/merges`
+
+**Merges already made**
+
+Newest first, with the names on both sides and the ids that moved. A reversal reachable only from the response that performed the merge keeps its promise for nobody but the person who ran it.
+
+_Permission: `student.merge`_
+
+**Query**
+
+| Name | Meaning |
+|---|---|
+| `limit` | Default 10, maximum 50. |
+
+**200** — An array of `{ id, winnerPersonId, loserPersonId, names, moved, reason, reversedAt, reverseReason, at }`. A reversed merge stays listed.
 
 ### `POST /api/v1/persons/{personId}/merge`
 

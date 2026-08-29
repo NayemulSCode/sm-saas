@@ -616,6 +616,178 @@ export const directory = {
     };
   },
 
+  /**
+   * Candidate duplicate pairs, strongest evidence first.
+   *
+   * Three signals, and each pair carries the one that proposed it. A review
+   * queue that will not say WHY it suggested something is one people stop
+   * reading — and merging the wrong pair fuses two children's records, so the
+   * reviewer has to be able to disagree with the reason.
+   *
+   *   birth_reg_no  a state-issued identifier. Two rows sharing one are the
+   *                 same human almost without exception.
+   *   name + dob    same name AND same date of birth.
+   *   name + phone  same name AND same contact number. The phone ALONE proves
+   *                 nothing — siblings share a handset, which is why the column
+   *                 is deliberately not unique — but two identical names behind
+   *                 one number is the guardian entered twice, a year apart.
+   *
+   * Name alone is deliberately absent. It is the noisiest possible signal here
+   * and a queue full of unrelated children called মোহাম্মদ is a queue nobody
+   * opens twice.
+   *
+   * `p1.id < p2.id` yields each pair once. Rows that already lost or won a
+   * merge are excluded: proposing them again is proposing to undo somebody.
+   */
+  async duplicateCandidates(tx: Tx, limit: number) {
+    const rows = await tx.execute<{
+      left_id: string;
+      left_name_bn: string;
+      left_name_en: string;
+      left_phone: string | null;
+      left_created_at: string | Date;
+      right_id: string;
+      right_name_bn: string;
+      right_name_en: string;
+      right_phone: string | null;
+      right_created_at: string | Date;
+      evidence: string;
+    }>(sql`
+      SELECT p1.id            AS left_id,
+             p1.name_bn       AS left_name_bn,
+             p1.name_en       AS left_name_en,
+             p1.phone         AS left_phone,
+             p1.created_at    AS left_created_at,
+             p2.id            AS right_id,
+             p2.name_bn       AS right_name_bn,
+             p2.name_en       AS right_name_en,
+             p2.phone         AS right_phone,
+             p2.created_at    AS right_created_at,
+             CASE
+               WHEN p1.birth_reg_no IS NOT NULL
+                    AND p1.birth_reg_no = p2.birth_reg_no      THEN 'birth_reg_no'
+               WHEN p1.date_of_birth IS NOT NULL
+                    AND p1.date_of_birth = p2.date_of_birth    THEN 'name_and_dob'
+               ELSE 'name_and_phone'
+             END AS evidence
+        FROM person p1
+        JOIN person p2
+          ON p2.tenant_id = p1.tenant_id
+         AND p1.id < p2.id
+         AND p1.deleted_at IS NULL
+         AND p2.deleted_at IS NULL
+         AND p1.merged_into_person_id IS NULL
+         AND p2.merged_into_person_id IS NULL
+         AND (
+              (p1.birth_reg_no IS NOT NULL AND p1.birth_reg_no = p2.birth_reg_no)
+           OR (p1.name_bn = p2.name_bn
+               AND p1.date_of_birth IS NOT NULL
+               AND p1.date_of_birth = p2.date_of_birth)
+           OR (p1.name_bn = p2.name_bn
+               AND p1.phone IS NOT NULL
+               AND p1.phone = p2.phone)
+         )
+       WHERE p1.deleted_at IS NULL
+         AND p1.merged_into_person_id IS NULL
+       ORDER BY 11, p1.created_at
+       LIMIT ${limit}
+    `);
+    return rows.rows;
+  },
+
+  /** What each side of a proposed merge would carry with it. */
+  async attachmentCounts(tx: Tx, personIds: readonly string[]) {
+    if (personIds.length === 0) return [];
+    const rows = await tx.execute<{
+      person_id: string;
+      students: number;
+      guardian_links: number;
+      staff: number;
+      memberships: number;
+    }>(sql`
+      SELECT p.id AS person_id,
+             (SELECT count(*) FROM student st
+               WHERE st.person_id = p.id AND st.deleted_at IS NULL)::int AS students,
+             (SELECT count(*) FROM guardian_link gl
+               WHERE gl.guardian_person_id = p.id AND gl.deleted_at IS NULL)::int
+               AS guardian_links,
+             (SELECT count(*) FROM staff sf
+               WHERE sf.person_id = p.id AND sf.deleted_at IS NULL)::int AS staff,
+             (SELECT count(*) FROM membership m
+               WHERE m.person_id = p.id)::int AS memberships
+        FROM person p
+       WHERE p.id IN (${sql.join(
+         personIds.map((id) => sql`${id}`),
+         sql`, `,
+       )})
+    `);
+    return rows.rows;
+  },
+
+  /**
+   * WHO is attached to each candidate, not just how many.
+   *
+   * With a duplicate pair the two names are identical by construction — that is
+   * why the pair was proposed — so a count alone leaves the reviewer choosing
+   * between two rows that read the same. The children behind each record are
+   * what makes the decision possible: two DIFFERENT children is the guardian
+   * entered twice, which is the case worth merging.
+   */
+  async attachmentNames(tx: Tx, personIds: readonly string[]) {
+    if (personIds.length === 0) return [];
+    const rows = await tx.execute<{ person_id: string; name_bn: string; role: string }>(sql`
+      -- Children this person is a guardian of.
+      SELECT gl.guardian_person_id AS person_id, cp.name_bn, 'child' AS role
+        FROM guardian_link gl
+        JOIN student st ON st.id = gl.student_id AND st.deleted_at IS NULL
+        JOIN person cp ON cp.id = st.person_id
+       WHERE gl.deleted_at IS NULL
+         AND gl.guardian_person_id IN (${sql.join(
+           personIds.map((id) => sql`${id}`),
+           sql`, `,
+         )})
+      UNION ALL
+      -- The person's own student record, if they are a student themselves.
+      SELECT st.person_id AS person_id, p.name_bn, 'self' AS role
+        FROM student st
+        JOIN person p ON p.id = st.person_id
+       WHERE st.deleted_at IS NULL
+         AND st.person_id IN (${sql.join(
+           personIds.map((id) => sql`${id}`),
+           sql`, `,
+         )})
+    `);
+    return rows.rows;
+  },
+
+  /** Recent merges, newest first, with the names on both sides. */
+  async recentMerges(tx: Tx, limit: number) {
+    const winner = alias(person, 'winner');
+    const loser = alias(person, 'loser');
+
+    return tx
+      .select({
+        id: personMerge.id,
+        winnerPersonId: personMerge.winnerPersonId,
+        loserPersonId: personMerge.loserPersonId,
+        winnerNameBn: winner.nameBn,
+        winnerNameEn: winner.nameEn,
+        loserNameBn: loser.nameBn,
+        loserNameEn: loser.nameEn,
+        moved: personMerge.moved,
+        reason: personMerge.reason,
+        reversedAt: personMerge.reversedAt,
+        reverseReason: personMerge.reverseReason,
+        createdAt: personMerge.createdAt,
+      })
+      .from(personMerge)
+      .leftJoin(winner, eq(winner.id, personMerge.winnerPersonId))
+      .leftJoin(loser, eq(loser.id, personMerge.loserPersonId))
+      .where(isNull(personMerge.deletedAt))
+      .orderBy(desc(personMerge.createdAt))
+      .limit(limit);
+  },
+
   async recordMerge(
     tx: Tx,
     input: {
