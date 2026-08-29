@@ -105,6 +105,15 @@ export default async function DashboardPage({
               Students
             </h2>
 
+            {can(ctx.value, 'student.write') && (
+              <Link
+                href={`${base}/students/new`}
+                className="rounded bg-[var(--brand-primary)] px-4 py-2 text-sm text-[var(--brand-on-primary)]"
+              >
+                Admit a student
+              </Link>
+            )}
+
             {/*
               * A GET form. It navigates, so the result is a real URL that can be
               * bookmarked and shared, the back button works, and none of it

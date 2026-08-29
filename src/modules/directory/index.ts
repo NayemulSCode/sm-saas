@@ -44,6 +44,12 @@ export {
 export { getStudent } from './application/getStudent';
 
 export {
+  updateStudent,
+  UpdateErrors,
+  type UpdateStudentInput,
+} from './application/updateStudent';
+
+export {
   listStudents,
   type ListStudentsInput,
   type StudentRow,
@@ -93,4 +99,5 @@ export {
   UndoPromotionSchema,
   MergePersonsSchema,
   UnmergePersonsSchema,
+  UpdateStudentSchema,
 } from './application/dto';

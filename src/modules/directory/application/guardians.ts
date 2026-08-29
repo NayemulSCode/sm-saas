@@ -43,12 +43,33 @@ export const GuardianErrors = defineErrors({
     messageKey: 'directory.error.sameStudent',
     httpStatus: 400,
   },
+  /** Neither an existing person nor details for a new one. */
+  NO_GUARDIAN_GIVEN: {
+    code: 'NO_GUARDIAN_GIVEN',
+    messageKey: 'directory.error.noGuardianGiven',
+    httpStatus: 400,
+  },
 });
 
 export interface LinkGuardianInput {
   studentId: StudentId;
-  /** An existing person. `directory` creates guardians as persons first. */
-  guardianPersonId: PersonId;
+  /**
+   * An existing person, OR `person` below to create one.
+   *
+   * Both, because both happen. A sibling's guardian is already on file and
+   * creating them again would fork the family; a new admission's father is
+   * not, and making the office create him on a separate screen first is two
+   * screens for one thought.
+   */
+  guardianPersonId?: PersonId | undefined;
+  person?:
+    | {
+        nameBn: string;
+        nameEn: string;
+        phone?: string | undefined;
+        email?: string | undefined;
+      }
+    | undefined;
   relationship: Relationship;
   isBillingGuardian?: boolean | undefined;
   isPrimaryContact?: boolean | undefined;
@@ -62,17 +83,36 @@ export async function linkGuardian(
 ): Promise<Result<{ linkId: string; demoted: string[] }, DomainError>> {
   authorize(ctx, 'guardian.write');
 
+  if (!input.guardianPersonId && !input.person) {
+    return err(GuardianErrors.NO_GUARDIAN_GIVEN);
+  }
+
   return withTenant(ctx, async (tx) => {
     if (!(await directory.studentById(tx, input.studentId))) {
       return err(AdmissionErrors.STUDENT_NOT_FOUND);
     }
-    if (!(await directory.personExists(tx, input.guardianPersonId))) {
+
+    /*
+     * Created inside the transaction, so a guardian is never left orphaned by
+     * a link that fails validation a line later.
+     */
+    const guardianPersonId =
+      input.guardianPersonId ??
+      (await directory.createPerson(tx, {
+        nameBn: input.person!.nameBn,
+        nameEn: input.person!.nameEn,
+        ...(input.person!.phone !== undefined ? { phone: input.person!.phone } : {}),
+        ...(input.person!.email !== undefined ? { email: input.person!.email } : {}),
+        actorId: ctx.personId,
+      }));
+
+    if (input.guardianPersonId && !(await directory.personExists(tx, guardianPersonId))) {
       return err(AdmissionErrors.PERSON_NOT_FOUND);
     }
 
     const existing = await directory.linksFor(tx, input.studentId);
     const verdict = evaluateLink(existing, {
-      guardianPersonId: input.guardianPersonId,
+      guardianPersonId,
       relationship: input.relationship,
       isBillingGuardian: input.isBillingGuardian ?? false,
       isPrimaryContact: input.isPrimaryContact ?? false,
@@ -105,7 +145,7 @@ export async function linkGuardian(
 
     const linkId = await directory.createLink(tx, {
       studentId: input.studentId,
-      guardianPersonId: input.guardianPersonId,
+      guardianPersonId,
       relationship: input.relationship,
       isBillingGuardian: input.isBillingGuardian ?? false,
       isPrimaryContact: input.isPrimaryContact ?? false,
@@ -118,7 +158,7 @@ export async function linkGuardian(
       entityType: 'student',
       after: {
         linkId,
-        guardianPersonId: input.guardianPersonId,
+        guardianPersonId,
         relationship: fact(input.relationship),
         isBillingGuardian: input.isBillingGuardian ?? false,
         isPrimaryContact: input.isPrimaryContact ?? false,

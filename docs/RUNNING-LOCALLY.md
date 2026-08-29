@@ -325,6 +325,25 @@ Being clear about this so you do not go looking:
 - **No worker.** `src/worker/index.ts` is a 51-line stub; the pg-boss consumers
   are commented out until the modules that need them exist.
 
+## 8b. Two Windows gotchas
+
+**`curl` on Git Bash mangles Bangla.** Non-ASCII in a `-d` argument arrives at
+the server as `?????`. The application is fine — it is the shell. Test Bangla
+input through the browser, or from Node:
+
+```bash
+node -e "fetch('http://127.0.0.1:3000/api/v1/students',{method:'POST',headers:{'content-type':'application/json',host:'demo.localhost:3000',cookie:'sm_session=...'},body:JSON.stringify({nameBn:'পরীক্ষা'})})"
+```
+
+**Database collation.** A database created by a Windows PostgreSQL installer
+usually gets `English_United States.1252`. Storage is still UTF-8 and nothing
+breaks, but Bangla names SORT by code point rather than linguistically. A Linux
+host will differ. If it matters for a demo:
+
+```bash
+psql -c "CREATE DATABASE sm_saas TEMPLATE template0 ENCODING 'UTF8' LOCALE 'C.UTF-8'"
+```
+
 ## 9. Known rough edges
 
 Two things that should be fixed and are not, both flagged here rather than left
