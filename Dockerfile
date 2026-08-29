@@ -51,7 +51,11 @@ ENV NODE_ENV=production \
 # the runtime stage carries no pnpm, no lockfile and no source.
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
+
+# No `public/` COPY. The directory does not exist — every asset so far is
+# imported through the bundler, which fingerprints it. Add the COPY back on the
+# day a favicon or a font file lands, not before: a COPY of a missing path
+# fails the build rather than being ignored.
 
 # The worker and the migration runner are not part of the Next build, so they
 # need their own dependencies and their own entry points.
