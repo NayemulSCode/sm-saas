@@ -14,6 +14,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Pool } from 'pg';
+import { request as httpRequest } from 'node:http';
 import { startNextServer, type TestServer } from '../../../test/next-server';
 import { provisionTenant } from '../../../modules/platform/index';
 import { Ids } from '../../../shared/ids';
@@ -540,10 +541,26 @@ describe('the login page', () => {
   /** The tenant surface is chosen by HOST, so the slug is a subdomain. */
   const tenantHost = `api-${STAMP}.localhost:3125`;
 
-  const page = async (path: string): Promise<{ status: number; html: string }> => {
-    const res = await fetch(`${server.url}${path}`, { headers: { host: tenantHost } });
-    return { status: res.status, html: await res.text() };
-  };
+  /*
+   * node:http rather than fetch. `host` is a FORBIDDEN HEADER NAME in the fetch
+   * spec, and undici drops it silently — the request lands on the root host,
+   * middleware routes it to the marketing surface, and the assertion fails with
+   * a 404 that looks like a broken route rather than a dropped header.
+   */
+  const page = (path: string): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const request = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => (body += chunk));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      request.on('error', reject);
+      request.end();
+    });
 
   it('renders, server-side, with both sign-in methods offered', async () => {
     const { status, html } = await page('/app/login');
