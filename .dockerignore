@@ -1,0 +1,21 @@
+# Anything that would bloat the build context or leak a secret into a layer.
+.git
+.github
+node_modules
+.next
+coverage
+docs
+*.md
+!README.md
+
+# NEVER. A .env copied into the image is a secret in every registry that holds
+# it — §33 puts secrets in the host's env_file, chmod 600, root-owned.
+.env
+.env.*
+!.env.example
+
+# Local artefacts
+*.log
+.DS_Store
+playwright-report
+test-results

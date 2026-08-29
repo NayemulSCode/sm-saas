@@ -1,0 +1,44 @@
+# TLS termination and security headers. §35.1.
+#
+# Cloudflare sits in front and holds the public certificate; Caddy holds an
+# origin certificate and is the last hop. Two layers rather than one because
+# Cloudflare terminating alone would leave the host↔edge leg in plaintext across
+# a datacentre network that is not ours.
+
+{
+	admin off
+	email {$ACME_EMAIL}
+}
+
+# The tenant surface is a wildcard: every school is a subdomain, and a
+# certificate per school does not scale past the first few.
+*.{$ROOT_DOMAIN}, {$ROOT_DOMAIN} {
+	encode zstd gzip
+
+	# Bangla PDFs and the app shell both benefit; the API does not, and
+	# compressing an already-small JSON body costs more than it saves.
+
+	header {
+		# HSTS is set by Next too. Set here as well because a request that
+		# never reaches the app — a 502 during a deploy — must still carry it.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Health probes are answered by the app, not by Caddy: a probe Caddy
+	# answers itself would report healthy while the app is down.
+	reverse_proxy app:3000 {
+		health_uri /api/health/ready
+		health_interval 10s
+		health_timeout 3s
+
+		# The deploy starts a second replica and drains the first (§35.3).
+		# Caddy stops sending to a backend that fails its health check, which
+		# is what makes the swap a few seconds rather than an outage.
+		lb_policy least_conn
+		lb_try_duration 5s
+	}
+}

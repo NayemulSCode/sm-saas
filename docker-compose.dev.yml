@@ -1,0 +1,63 @@
+# Local development. §11.5.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Runs the DEPENDENCIES only — PostgreSQL, MinIO, Mailpit — and leaves the app
+# to `pnpm dev` on the host. Running Next in a container locally costs a slow
+# bind-mounted rebuild on every keystroke and buys nothing: the thing that has
+# to match production is the database, not the file watcher.
+#
+# PostgreSQL 18 to match CI and production exactly. A green local run on 16
+# proves less than it looks like it does.
+
+name: sm-saas-dev
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      # Development credentials, committed on purpose: they protect nothing and
+      # a placeholder nobody can guess just costs an afternoon. Production
+      # secrets live in the host's env_file (§33).
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sm_saas
+    volumes:
+      - devdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d sm_saas']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # R2-compatible, which keeps the S3 adapter exercised locally rather than
+  # only in production — and keeps the self-hosted storage option open.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+
+  # Catches every outgoing email. Nothing in development should be able to
+  # reach a real inbox — an invite link sent to a real address during a test is
+  # a live credential in somebody's mailbox.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+volumes:
+  devdata:
+  miniodata:

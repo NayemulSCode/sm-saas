@@ -1,0 +1,111 @@
+# Production topology. §35.1.
+#
+# One 8 GB / 4 vCPU host runs everything. EVERY CONTAINER HAS AN EXPLICIT
+# MEMORY LIMIT — without one, Chromium sizes its caches to available host
+# memory and expands until PostgreSQL starves, which is the single most likely
+# way this host falls over.
+#
+# The numbers below add up to 5.5 GB of 8 GB. The remainder is page cache,
+# which PostgreSQL depends on and which a tighter allocation would take away.
+
+name: sm-saas
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    mem_limit: 128m
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      ROOT_DOMAIN: ${ROOT_DOMAIN:?set ROOT_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+  app:
+    image: ${IMAGE:?set IMAGE to a digest, not a tag}
+    restart: always
+    mem_limit: 1g
+    command: ['node', 'server.js']
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Readiness, not liveness: Compose must not call a container healthy
+      # before it can reach the database.
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+  worker:
+    image: ${IMAGE:?set IMAGE to a digest, not a tag}
+    restart: always
+    mem_limit: 512m
+    command: ['node', '--experimental-strip-types', 'src/worker/index.ts']
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    restart: always
+    mem_limit: 3g
+    # shm_size matters for parallel query and large sorts; the 64 MB default
+    # produces "could not resize shared memory segment" under a report.
+    shm_size: 256m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sm_saas}
+    command:
+      - postgres
+      # shared_buffers 2 GB of the 3 GB limit; the rest is work_mem and
+      # connections. Tuned for an 8 GB host, not copied from a 64 GB guide.
+      - '-c'
+      - 'shared_buffers=2GB'
+      - '-c'
+      - 'effective_cache_size=4GB'
+      - '-c'
+      - 'work_mem=16MB'
+      - '-c'
+      - 'maintenance_work_mem=256MB'
+      - '-c'
+      - 'max_connections=100'
+      # Continuous WAL archiving is what makes the ≤ 60 s RPO real (§36.1).
+      # archive_command is set by provision-host.sh once R2 credentials exist.
+      - '-c'
+      - 'wal_level=replica'
+      - '-c'
+      - 'archive_mode=on'
+      - '-c'
+      - 'archive_timeout=60s'
+      - '-c'
+      - "archive_command=/bin/true"
+      # Money-moving transactions raise this per transaction to remote_write
+      # (§36.2). The default stays local so attendance pays none of the cost.
+      - '-c'
+      - 'synchronous_commit=on'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sm_saas}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
