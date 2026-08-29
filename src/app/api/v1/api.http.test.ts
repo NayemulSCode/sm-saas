@@ -12,7 +12,7 @@
  * at the same point.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Pool } from 'pg';
 import { startNextServer, type TestServer } from '../../../test/next-server';
 import { provisionTenant } from '../../../modules/platform/index';
@@ -74,6 +74,19 @@ const errorCode = (j: Record<string, unknown>): string =>
 
 beforeAll(async () => {
   if (!ADMIN_URL) throw new Error('HTTP tests need DATABASE_URL_MIGRATOR.');
+
+  /*
+   * This suite provisions its school by calling the module directly, which
+   * loads and validates the environment inside the TEST process — the server
+   * under test has its own. The other HTTP suite only ever spoke raw SQL, so
+   * it never needed these.
+   */
+  vi.stubEnv('APP_URL', 'http://localhost:3125');
+  vi.stubEnv('PLATFORM_HOST', 'admin.localhost');
+  vi.stubEnv('SESSION_SECRET', 'x'.repeat(32));
+  vi.stubEnv('ENCRYPTION_KEY', 'a'.repeat(64));
+  vi.stubEnv('TZ', 'Asia/Dhaka');
+
   admin = new Pool({ connectionString: ADMIN_URL, max: 4 });
 
   const operatorAccount = nid<'account'>();
