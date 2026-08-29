@@ -140,6 +140,38 @@ pnpm db:roles:dev
   and a credential must not be. It also re-asserts the append-only revocation on
   the audit tables, which its own blanket `GRANT` would otherwise undo.
 
+## 4b. Demo data
+
+```bash
+pnpm demo
+```
+
+Builds **two** schools through the real use cases. The second exists so that
+"no cross-tenant leak" means something you can check by eye rather than only in
+a test.
+
+It prints the sign-in details. Staff get a password so showing this to somebody
+does not require reading an OTP out of a terminal:
+
+| | |
+|---|---|
+| `http://demo.localhost:3000/app/login` | `+8801700000001` / `demo1234` |
+| `http://other-school.localhost:3000/app/login` | `+8801700000010` / `demo1234` |
+
+**The tenant surface is chosen by HOST, not by path.** `localhost:3000` is the
+marketing site; `demo.localhost:3000` is the school. `*.localhost` resolves to
+127.0.0.1 on Windows, macOS and most Linux without touching `hosts`.
+
+Guardians have no password by design — use the Phone code tab, and read the
+six digits from the `pnpm dev` terminal.
+
+`pnpm demo` is **not idempotent**: it creates a whole school each run and
+refuses if the slug already exists. To start over:
+
+```bash
+psql -c 'DROP DATABASE sm_saas' -c 'CREATE DATABASE sm_saas'
+```
+
 ## 5. The four test layers
 
 Each proves something the others cannot. Run them in this order — it is the

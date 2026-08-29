@@ -60,3 +60,48 @@ describe('loadEnv', () => {
     }
   });
 });
+
+/*
+ * A `.env` file expresses "not set" as `FOO=`, and that arrives as an empty
+ * string rather than being dropped. `.env.example` ships exactly that for the
+ * replica URL, so a plain `.optional()` failed for everyone who followed the
+ * setup guide.
+ */
+describe('an empty value means unset, not invalid', () => {
+  // `satisfies`, matching the fixture at the top of this file: it keeps the
+  // literal types for the spreads below while still being checked.
+  const base = {
+    NODE_ENV: 'test',
+    APP_URL: 'http://localhost:3000',
+    PLATFORM_HOST: 'admin.localhost',
+    DATABASE_URL_APP: 'postgres://x@localhost/y',
+    SESSION_SECRET: 'x'.repeat(32),
+    ENCRYPTION_KEY: 'a'.repeat(64),
+  } satisfies NodeJS.ProcessEnv;
+
+  it('accepts an empty optional URL and reports it as undefined', () => {
+    const env = loadEnv({ ...base, DATABASE_URL_READONLY: '' });
+    expect(env.DATABASE_URL_READONLY).toBeUndefined();
+  });
+
+  it('accepts empty optional credentials', () => {
+    const env = loadEnv({
+      ...base,
+      R2_BUCKET: '',
+      SMS_API_KEY: '   ',
+      SENTRY_DSN: '',
+    });
+    expect(env.R2_BUCKET).toBeUndefined();
+    expect(env.SMS_API_KEY).toBeUndefined();
+  });
+
+  it('still keeps a real value', () => {
+    const env = loadEnv({ ...base, R2_BUCKET: 'sm-media' });
+    expect(env.R2_BUCKET).toBe('sm-media');
+  });
+
+  // The REQUIRED ones must not be softened by the same treatment.
+  it('still rejects an empty required value', () => {
+    expect(() => loadEnv({ ...base, SESSION_SECRET: '' })).toThrow();
+  });
+});
