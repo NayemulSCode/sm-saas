@@ -14,6 +14,7 @@ import { getStructure } from '../../../../../../../../modules/structure/index';
 import { readSessionToken } from '../../../../../../../api/_lib/session-cookie';
 import { can } from '../../../../../../../../shared/auth-context';
 import { AdmitForm, type SectionOption } from './AdmitForm';
+import { appPath } from '../../../../../../../../shared/paths';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,8 @@ export default async function NewStudentPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<React.JSX.Element> {
-  const { locale, slug } = await params;
-  const base = `/${locale}/s/${slug}/app`;
+  const { locale } = await params;
+  const base = appPath(locale);
 
   const token = await readSessionToken();
   if (!token) redirect(`${base}/login`);

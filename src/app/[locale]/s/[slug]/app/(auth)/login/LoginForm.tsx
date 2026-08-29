@@ -14,6 +14,7 @@
  */
 
 import { useState, type FormEvent } from 'react';
+import { appPath } from '../../../../../../../shared/paths';
 
 type Step = 'identify' | 'code';
 type Mode = 'otp' | 'password';
@@ -76,7 +77,7 @@ async function call(
   return { ok: true, data: (json['data'] ?? {}) as Record<string, unknown> };
 }
 
-export function LoginForm({ slug, locale }: { slug: string; locale: string }): React.JSX.Element {
+export function LoginForm({ locale }: { locale: string }): React.JSX.Element {
   const [mode, setMode] = useState<Mode>('otp');
   const [step, setStep] = useState<Step>('identify');
   const [identifier, setIdentifier] = useState('');
@@ -86,7 +87,7 @@ export function LoginForm({ slug, locale }: { slug: string; locale: string }): R
   const [error, setError] = useState<ApiError | null>(null);
   const [contexts, setContexts] = useState<Context[] | null>(null);
 
-  const home = `/${locale}/s/${slug}/app/dashboard`;
+  const home = appPath(locale, '/dashboard');
 
   async function requestCode(e: FormEvent): Promise<void> {
     e.preventDefault();

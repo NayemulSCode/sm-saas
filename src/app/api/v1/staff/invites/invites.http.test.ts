@@ -27,14 +27,27 @@ const TENANT_B = nid();
 
 /** The principal: has membership.manage, and exactly one membership so that
  *  logging in auto-activates it. */
-const ADMIN_PHONE = '+8801711000001';
+/*
+ * Per-run natural keys.
+ *
+ * The ids above are fresh every run, but slugs, plan codes and phone numbers
+ * are NATURAL keys with unique constraints, and every fixture insert says
+ * `ON CONFLICT DO NOTHING`. Hold them constant and the second run silently
+ * skips the insert, leaving the freshly generated id pointing at nothing — the
+ * failure surfaces later as a foreign-key violation on an unrelated table. CI
+ * starts from an empty database and never sees it; a developer's machine sees
+ * it on run two.
+ */
+const STAMP = String(Date.now()).slice(-8);
+
+const ADMIN_PHONE = `+88013${STAMP}`;
 const ADMIN_PERSON = nid();
 const ADMIN_ACCOUNT = nid();
 const ADMIN_CREDENTIAL = nid();
 const ADMIN_MEMBERSHIP = nid();
 
 /** A librarian: authenticated, in the same school, WITHOUT membership.manage. */
-const CLERK_PHONE = '+8801711000002';
+const CLERK_PHONE = `+88014${STAMP}`;
 const CLERK_PERSON = nid();
 const CLERK_ACCOUNT = nid();
 const CLERK_CREDENTIAL = nid();
@@ -79,7 +92,7 @@ async function login(phone: string, credentialId: string): Promise<string> {
   await admin.query('DELETE FROM otp_challenge WHERE credential_id = $1', [uuid(credentialId)]);
   await post('/api/v1/auth/otp/request', { identifier: phone });
 
-  const code = server.lastOtpCode();
+  const code = await server.waitForOtpCode();
   if (!code) throw new Error(`no OTP code was dispatched for ${phone}`);
 
   const res = await post('/api/v1/auth/otp/verify', { identifier: phone, code });
@@ -105,12 +118,12 @@ beforeAll(async () => {
 
   await admin.query(
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
-     VALUES ($1,'invite-http','পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
-    [uuid(PLAN)],
+     VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
+    [uuid(PLAN), `invite-http-${STAMP}`],
   );
   for (const [t, slug] of [
-    [TENANT_A, 'invite-http-a'],
-    [TENANT_B, 'invite-http-b'],
+    [TENANT_A, `invite-http-a-${STAMP}`],
+    [TENANT_B, `invite-http-b-${STAMP}`],
   ] as const) {
     await admin.query(
       `INSERT INTO tenant (id, slug, name_bn, name_en, plan_id, status)

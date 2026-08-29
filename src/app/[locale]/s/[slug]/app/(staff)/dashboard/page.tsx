@@ -20,6 +20,7 @@ import { getStructure } from '../../../../../../../modules/structure/index';
 import { listStudents, type StudentRow } from '../../../../../../../modules/directory/index';
 import { readSessionToken } from '../../../../../../api/_lib/session-cookie';
 import { can } from '../../../../../../../shared/auth-context';
+import { appPath } from '../../../../../../../shared/paths';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,10 +33,10 @@ export default async function DashboardPage({
   params,
   searchParams,
 }: Props): Promise<React.JSX.Element> {
-  const { locale, slug } = await params;
+  const { locale } = await params;
   const { search, cursor } = await searchParams;
 
-  const base = `/${locale}/s/${slug}/app`;
+  const base = appPath(locale);
 
   /*
    * Unauthenticated lands on the login page, not on a 403. A 403 on a page is a
