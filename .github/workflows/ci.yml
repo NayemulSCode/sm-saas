@@ -17,6 +17,13 @@ jobs:
       - name: Check links, ADR index and secret leakage
         run: bash ./scripts/check-docs.sh
 
+      # Hand-written API documentation drifts within a month; generated
+      # documentation drifts the moment somebody stops regenerating it. This
+      # fails on a stale file, on a route with no registry entry, and on a
+      # documented endpoint no route exports.
+      - name: API documentation is current
+        run: pnpm docs:api --check
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
