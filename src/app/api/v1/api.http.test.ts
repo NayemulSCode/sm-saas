@@ -530,3 +530,42 @@ describe('the transport contract', () => {
     expect(errorCode(res.json)).toBe('SECTION_NOT_FOUND');
   }, 30_000);
 });
+
+/*
+ * The login page itself. Not a substitute for driving it in a browser, but it
+ * catches the two failures that make the product unusable and that no unit test
+ * sees: the page throwing on render, and the client island failing to ship.
+ */
+describe('the login page', () => {
+  /** The tenant surface is chosen by HOST, so the slug is a subdomain. */
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+
+  const page = async (path: string): Promise<{ status: number; html: string }> => {
+    const res = await fetch(`${server.url}${path}`, { headers: { host: tenantHost } });
+    return { status: res.status, html: await res.text() };
+  };
+
+  it('renders, server-side, with both sign-in methods offered', async () => {
+    const { status, html } = await page('/app/login');
+    expect(status, html.slice(0, 400)).toBe(200);
+
+    // The heading and copy are server-rendered: the page is readable before
+    // any JavaScript arrives, which on 3G is most of the wait.
+    expect(html).toContain('Sign in');
+    expect(html).toContain('Phone code');
+    expect(html).toContain('Password');
+  }, 60_000);
+
+  it('ships the fields a phone needs to autofill an SMS code', async () => {
+    const { html } = await page('/app/login');
+    // `autocomplete="tel"` and the one-time-code field are what let a handset
+    // offer the number and the code from the keyboard.
+    expect(html).toContain('autocomplete="tel"');
+    expect(html).toContain('inputmode="tel"');
+  }, 60_000);
+
+  it('sets lang from the locale, which a screen reader switches voice on', async () => {
+    const { html } = await page('/app/login');
+    expect(html).toMatch(/<html[^>]+lang="(bn|en)"/);
+  }, 60_000);
+});
