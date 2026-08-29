@@ -19,14 +19,19 @@ PostgreSQL **18** specifically — CI uses `postgres:18-alpine`, and running a
 different major version locally means a green local run proves less than it
 looks like it does.
 
-The easiest way to match CI exactly is Docker:
+The easiest way to match CI exactly is the dev compose file, which also brings
+up MinIO (so the R2 adapter stays exercised locally) and Mailpit (so nothing in
+development can reach a real inbox):
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+If you only want the database:
 
 ```bash
 docker run --name sm-pg -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=sm_saas -p 5432:5432 -d postgres:18-alpine
 ```
-
-There is no `docker-compose.yml` in the repository yet — that arrives with the
-deployment increment. This one container is all the test suites need.
 
 If you already have PostgreSQL 18 installed natively, create the database and
 skip the container:

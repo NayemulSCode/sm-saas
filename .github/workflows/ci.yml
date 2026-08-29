@@ -62,6 +62,34 @@ jobs:
       # a teacher's phone at 08:30 over 3G, the product does not work (§4.4).
       - run: pnpm check:bundle
 
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Built on every push rather than only at release. A Dockerfile that is
+      # only exercised when you need it is one that breaks when you need it.
+      - name: Build
+        run: docker build -t sm-saas:ci .
+      # The image must be able to START, not merely to build. A missing runtime
+      # file shows up here and not at 02:00.
+      - name: The image runs and answers liveness
+        run: |
+          docker run -d --name smtest -p 3999:3000             -e APP_URL=http://localhost:3999             -e PLATFORM_HOST=admin.localhost             -e SESSION_SECRET=ci-placeholder-at-least-32-characters             -e ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000             -e DATABASE_URL_APP=postgres://nobody@127.0.0.1:5432/none             sm-saas:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3999/api/health/live; then ok=1; break; fi
+            sleep 2
+          done
+          docker logs smtest
+          test "${ok:-0}" = 1
+      # With no database reachable, readiness must be 503 — not 200, and not a
+      # crash. That is what stops a deploy shifting traffic to a broken replica.
+      - name: Readiness fails closed without a database
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3999/api/health/ready)
+          echo "readiness → $code"
+          test "$code" = 503
+
   test:
     name: Tests
     runs-on: ubuntu-latest
@@ -143,3 +171,18 @@ jobs:
       # A seed that is not idempotent breaks the second deploy, not the first.
       - name: Migrations are idempotent
         run: pnpm db:migrate
+
+      # §36: "an untested backup is not a backup, and the single most common
+      # way small teams lose data is discovering at restore time that the
+      # backups were empty for months." So the drill runs on every push, not
+      # quarterly on a calendar somebody stops looking at.
+      #
+      # Inside postgres:18-alpine so pg_dump matches the server exactly — the
+      # runner's own client is an older major and refuses outright.
+      - name: Backup and restore drill
+        run: |
+          docker run --rm --network host -v "$PWD:/w" -w /w             -e DATABASE_URL_MIGRATOR="$DATABASE_URL_MIGRATOR"             postgres:18-alpine sh -c '
+              apk add --no-cache bash >/dev/null &&
+              bash ./scripts/backup.sh &&
+              bash ./scripts/restore-drill.sh "$(ls backups/base-*.dump | head -1)"
+            '

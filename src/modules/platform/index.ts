@@ -21,3 +21,5 @@ export {
   type ClassLevelSeed,
   type ShiftSeed,
 } from './domain/provisioning';
+
+export { checkReadiness, type Readiness } from './infrastructure/readiness';
