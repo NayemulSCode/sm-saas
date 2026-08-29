@@ -20,8 +20,10 @@ import { PERMISSIONS, DANGEROUS_PERMISSIONS } from '../src/shared/permissions';
 import {
   ROLE_TEMPLATES,
   LIVE_IN_3A,
+  PLANS,
   moduleOf,
 } from '../src/shared/role-templates';
+import { Ids } from '../src/shared/ids';
 
 const url = process.env.DATABASE_URL_MIGRATOR ?? process.env.DATABASE_URL_APP;
 if (!url) {
@@ -63,6 +65,41 @@ async function main(): Promise<void> {
       );
     }
 
+    /*
+     * Plans. Without at least one, `pnpm provision` fails with PLAN_NOT_FOUND
+     * on a fresh database — which is the first thing anyone tries after
+     * migrating, so this is not optional reference data.
+     *
+     * Keyed by `code`, not by id: re-running must update the existing row
+     * rather than create a second plan every deploy.
+     */
+    for (const plan of PLANS) {
+      const [existing] = (
+        await client.query<{ id: string }>('SELECT id FROM plan WHERE code = $1', [plan.code])
+      ).rows;
+      const id = existing?.id ?? Ids.toUuid(Ids.generate<'plan'>());
+
+      await client.query(
+        `INSERT INTO plan (id, code, name_bn, name_en, price_minor, currency, billing_period)
+         VALUES ($1, $2, $3, $4, $5, 'BDT', 'monthly')
+         ON CONFLICT (code) DO UPDATE
+           SET name_bn = EXCLUDED.name_bn,
+               name_en = EXCLUDED.name_en,
+               price_minor = EXCLUDED.price_minor`,
+        [id, plan.code, plan.nameBn, plan.nameEn, plan.priceMinor.toString()],
+      );
+
+      for (const f of plan.features) {
+        await client.query(
+          `INSERT INTO plan_feature (plan_id, feature_key, enabled, limit_value)
+           VALUES ($1, $2, true, $3)
+           ON CONFLICT (plan_id, feature_key) DO UPDATE
+             SET enabled = EXCLUDED.enabled, limit_value = EXCLUDED.limit_value`,
+          [id, f.key, f.limit ?? null],
+        );
+      }
+    }
+
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');
@@ -87,7 +124,8 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `seeded ${PERMISSIONS.length} permissions and ${ROLE_TEMPLATES.length} role templates`,
+    `seeded ${PERMISSIONS.length} permissions, ${ROLE_TEMPLATES.length} role templates ` +
+      `and ${PLANS.length} plans`,
   );
   await pool.end();
 }
