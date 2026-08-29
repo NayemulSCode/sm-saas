@@ -30,11 +30,21 @@ const PLATFORM_URL = process.env.DATABASE_URL_PLATFORM;
 const nid = <T extends string = 'x'>() => Ids.generate<T>();
 const uuid = (v: string) => Ids.toUuid(v as never);
 
-const PLAN_CODE = `prov-${Date.now()}`;
-const SLUG = `prov-${Date.now()}`;
-const OWNER_PHONE = '+8801733000111';
+const STAMP = Date.now();
+const PLAN_CODE = `prov-${STAMP}`;
+const SLUG = `prov-${STAMP}`;
+/*
+ * Phones are stamped for the same reason the slug and the plan code already
+ * are. A phone is unique as a LOGIN IDENTIFIER across tenants, so a fixed one
+ * hands run N+1 the account run N created — now holding N memberships. Login
+ * then resolves to several contexts, activates none, and the suite dies on
+ * NO_ACTIVE_CONTEXT. CI starts from an empty database and never sees it.
+ */
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const OWNER_PHONE = phone('330');
 /** Already has an account before provisioning — a guardian who opens a school. */
-const REUSED_PHONE = '+8801733000222';
+const REUSED_PHONE = phone('331');
 
 let admin: Pool;
 let operator: PlatformContext;
@@ -238,15 +248,16 @@ describe('provisioning a school', () => {
 describe('the owner can actually use the school', () => {
   let tenantId: string;
   let ownerPersonId: PersonId;
-  const slug = `prov-usable-${Date.now()}`;
-  const phone = '+8801733000333';
+  const slug = `prov-usable-${STAMP}`;
+  // Named, not `phone`, so it does not shadow the per-run helper above.
+  const ownerPhone = phone('332');
 
   it('provisions, then logs the owner in by OTP with no password anywhere', async () => {
     const r = await provisionTenant(
       operator,
       input({
         slug,
-        owner: { nameBn: 'শাহিদা খাতুন', nameEn: 'Shahida Khatun', phone },
+        owner: { nameBn: 'শাহিদা খাতুন', nameEn: 'Shahida Khatun', phone: ownerPhone },
       }),
       { clock },
     );
@@ -257,7 +268,7 @@ describe('the owner can actually use the school', () => {
 
     let code: string | undefined;
     await requestOtp(
-      { identifier: phone },
+      { identifier: ownerPhone },
       {
         codeHasher,
         random: randomSource,
@@ -267,7 +278,7 @@ describe('the owner can actually use the school', () => {
     expect(code, 'the owner must be reachable by OTP on day one').toMatch(/^\d{6}$/);
 
     const login = await verifyOtp(
-      { identifier: phone, code: code! },
+      { identifier: ownerPhone, code: code! },
       { codeHasher, tokens: tokenGenerator },
     );
     expect(login.ok, JSON.stringify(login)).toBe(true);

@@ -469,6 +469,22 @@ export const ENDPOINTS: Endpoint[] = [
     ],
   },
   {
+    method: 'GET',
+    path: '/api/v1/promotions',
+    tag: 'Promotion',
+    summary: 'Recent promotion runs',
+    description:
+      'The last few runs, newest first — what can still be taken back. Guarded by `enrolment.promote` rather than a read permission, because deciding what to undo is its only purpose.',
+    permission: 'enrolment.promote',
+    query: [
+      { name: 'limit', description: 'Default 10, maximum 50.' },
+    ],
+    successStatus: 200,
+    returns:
+      'An array of `{ id, sectionNameEn, className, fromYearName, toYearName, promoted, retained, transferred, withdrawn, undoneAt, undoReason, at }`. A batch whose section or year has since been removed still appears, with nulls for the names — it is still undoable.',
+    failures: [],
+  },
+  {
     method: 'POST',
     path: '/api/v1/promotions/{batchId}/undo',
     tag: 'Promotion',

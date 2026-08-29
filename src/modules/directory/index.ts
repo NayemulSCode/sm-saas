@@ -27,6 +27,11 @@ export {
 } from './application/promoteSection';
 
 export {
+  listPromotionBatches,
+  type PromotionBatchRow,
+} from './application/listPromotionBatches';
+
+export {
   linkGuardian,
   unlinkGuardian,
   linkSiblings,

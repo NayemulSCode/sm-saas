@@ -20,10 +20,23 @@ const PLATFORM_URL = process.env.DATABASE_URL_PLATFORM;
 const nid = <T extends string = 'x'>() => Ids.generate<T>();
 const uuid = (v: string) => Ids.toUuid(v as never);
 
-const STAFF_EMAIL = 'principal@pw-int.example.bd';
+/*
+ * Per-run natural keys: slugs, plan codes and phone numbers all carry unique
+ * constraints, and every fixture insert here says `ON CONFLICT DO NOTHING`.
+ * Hold them constant and run two silently skips the insert, leaving the
+ * freshly generated id pointing at nothing — which surfaces later as a foreign
+ * key violation on an unrelated table, or as NO_ACTIVE_CONTEXT once an account
+ * has collected a membership per run. CI starts from an empty database and
+ * never sees any of it.
+ */
+const STAMP = Date.now();
+const phone = (code: string): string => `+8801${code}${String(STAMP).slice(-6)}`;
+
+const STAFF_EMAIL = `principal-${STAMP}@pw-int.example.bd`;
 const STAFF_PASSWORD = 'a-perfectly-fine-password';
-const GUARDIAN_PHONE = '+8801733445566';
-const LOCKOUT_EMAIL = 'lockme@pw-int.example.bd';
+
+const GUARDIAN_PHONE = phone('730');
+const LOCKOUT_EMAIL = `lockme-${STAMP}@pw-int.example.bd`;
 
 const PLAN = nid();
 const TENANT = nid();
@@ -51,13 +64,13 @@ beforeAll(async () => {
 
   await admin.query(
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
-     VALUES ($1,'pw-int','পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
-    [uuid(PLAN)],
+     VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
+    [uuid(PLAN), `pw-int-${STAMP}`],
   );
   await admin.query(
     `INSERT INTO tenant (id, slug, name_bn, name_en, plan_id, status)
-     VALUES ($1,'pw-int','বিদ্যালয়','School',$2,'active') ON CONFLICT DO NOTHING`,
-    [uuid(TENANT), uuid(PLAN)],
+     VALUES ($1,$3,'বিদ্যালয়','School',$2,'active') ON CONFLICT DO NOTHING`,
+    [uuid(TENANT), uuid(PLAN), `pw-int-${STAMP}`],
   );
 
   for (const p of [STAFF_PERSON, GUARDIAN_PERSON, LOCK_PERSON]) {

@@ -2869,6 +2869,84 @@
         ]
       }
     },
+    "/api/v1/promotions": {
+      "get": {
+        "tags": [
+          "Promotion"
+        ],
+        "summary": "Recent promotion runs",
+        "description": "The last few runs, newest first — what can still be taken back. Guarded by `enrolment.promote` rather than a read permission, because deciding what to undo is its only purpose.\n\n**Permission:** `enrolment.promote`",
+        "operationId": "get_api_v1_promotions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 10, maximum 50.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of `{ id, sectionNameEn, className, fromYearName, toYearName, promoted, retained, transferred, withdrawn, undoneAt, undoReason, at }`. A batch whose section or year has since been removed still appears, with nulls for the names — it is still undoable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/promotions/{batchId}/undo": {
       "post": {
         "tags": [

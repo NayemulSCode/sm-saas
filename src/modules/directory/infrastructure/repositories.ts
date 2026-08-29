@@ -3,12 +3,13 @@
  */
 
 import { and, asc, desc, eq, ilike, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { Tx } from '../../../db/rls';
 import { enrolment, person, staff } from '../../../db/schema/directory';
 import { guardianLink, siblingGroup, siblingMember, student, studentStatusEvent } from '../../../db/schema/directoryStudents';
 import { personMerge, promotionBatch } from '../../../db/schema/directoryOps';
 import { membership } from '../../../db/schema/identity';
-import { classLevel, section } from '../../../db/schema/structure';
+import { academicYear, classLevel, section } from '../../../db/schema/structure';
 import type { AuthContext } from '../../../shared/auth-context';
 import type { Cursor } from '../../../shared/keyset';
 import { Ids } from '../../../shared/ids';
@@ -375,6 +376,45 @@ export const directory = {
       .where(and(eq(promotionBatch.id, id as never), isNull(promotionBatch.deletedAt)))
       .limit(1);
     return row;
+  },
+
+  /**
+   * The recent runs, newest first, with the names a person recognises.
+   *
+   * Undo is useless if it only exists on the screen that did the promotion.
+   * "We ran it on the wrong section" is realised minutes later, by which time
+   * the tab is closed — so the batches have to be findable.
+   */
+  async recentBatches(tx: Tx, limit: number) {
+    const fromYear = alias(academicYear, 'from_year');
+    const toYear = alias(academicYear, 'to_year');
+
+    return tx
+      .select({
+        id: promotionBatch.id,
+        sourceSectionId: promotionBatch.sourceSectionId,
+        sectionNameEn: section.nameEn,
+        className: classLevel.nameEn,
+        fromYearName: fromYear.name,
+        toYearName: toYear.name,
+        promoted: promotionBatch.promoted,
+        retained: promotionBatch.retained,
+        transferred: promotionBatch.transferred,
+        withdrawn: promotionBatch.withdrawn,
+        undoneAt: promotionBatch.undoneAt,
+        undoReason: promotionBatch.undoReason,
+        createdAt: promotionBatch.createdAt,
+      })
+      .from(promotionBatch)
+      // Left joins: a section or a year may have been removed since the run,
+      // and a batch that cannot be named is still a batch that must be undoable.
+      .leftJoin(section, eq(section.id, promotionBatch.sourceSectionId))
+      .leftJoin(classLevel, eq(classLevel.id, section.classLevelId))
+      .leftJoin(fromYear, eq(fromYear.id, promotionBatch.fromYearId))
+      .leftJoin(toYear, eq(toYear.id, promotionBatch.toYearId))
+      .where(isNull(promotionBatch.deletedAt))
+      .orderBy(desc(promotionBatch.createdAt))
+      .limit(limit);
   },
 
   /** Exactly the enrolments one run created — never rows added by hand after. */
