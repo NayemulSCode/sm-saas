@@ -32,7 +32,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     const result = await inviteStaff(
       auth.ctx,
       {
-        personId: parsed.data.personId as PersonId,
+        ...(parsed.data.personId !== undefined
+          ? { personId: parsed.data.personId as PersonId }
+          : {}),
+        ...(parsed.data.person !== undefined ? { person: parsed.data.person } : {}),
         identifier: parsed.data.identifier,
         roleIds: parsed.data.roleIds as RoleId[],
       },

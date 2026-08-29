@@ -116,3 +116,4 @@ export {
 } from './application/grantRole';
 export { evaluateGrant, type GrantVerdict } from './domain/grant';
 export { GrantRoleSchema, RevokeRoleSchema } from './application/dto';
+export { listMembers, type MemberRow } from './application/listMembers';

@@ -147,13 +147,26 @@ const admin = new Pool({ connectionString: ADMIN_URL, max: 4 });
 
 const operatorAccount = Ids.generate<'account'>();
 
-/** Staff sign in with a password; guardians never have one. */
+/**
+ * Staff sign in with a password; guardians never have one.
+ *
+ * Setting it directly is what an accepted invite would have done, so the
+ * outstanding invite is closed at the same time. Leaving it open would show
+ * "invite pending" beside somebody who can already sign in — a demo that
+ * contradicts itself on the first screen.
+ */
 async function setPassword(phone: string): Promise<void> {
   const hash = await passwordHasher.hash(DEMO_PASSWORD);
   await admin.query(
     `UPDATE credential SET password_hash = $1, verified_at = now()
      WHERE kind = 'phone' AND value = $2`,
     [hash, phone],
+  );
+  await admin.query(
+    `UPDATE staff_invite SET consumed_at = now()
+     WHERE consumed_at IS NULL AND revoked_at IS NULL
+       AND credential_id IN (SELECT id FROM credential WHERE value = $1)`,
+    [phone],
   );
 }
 

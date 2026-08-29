@@ -52,14 +52,27 @@ export const PasswordLoginSchema = z.object({
 });
 export type PasswordLoginDto = z.infer<typeof PasswordLoginSchema>;
 
-export const InviteStaffSchema = z.object({
-  personId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'),
-  identifier: zIdentifier,
-  roleIds: z
-    .array(z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'))
-    .max(10)
-    .default([]),
-});
+export const InviteStaffSchema = z
+  .object({
+    /** An existing person… */
+    personId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId').optional(),
+    /** …or a name to create one. Exactly one of the two. */
+    person: z
+      .object({
+        nameBn: z.string().trim().min(1).max(120),
+        nameEn: z.string().trim().min(1).max(120),
+      })
+      .optional(),
+    identifier: zIdentifier,
+    roleIds: z
+      .array(z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'))
+      .max(10)
+      .default([]),
+  })
+  .refine((v) => Boolean(v.personId) !== Boolean(v.person), {
+    message: 'invite.error.noPersonGiven',
+    path: ['personId'],
+  });
 export type InviteStaffDto = z.infer<typeof InviteStaffSchema>;
 
 export const AcceptInviteSchema = z.object({

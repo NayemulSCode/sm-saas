@@ -20,6 +20,7 @@ import { INVITE, inviteExpiryFrom } from '../domain/invite';
 import type { TokenGenerator } from '../domain/ports';
 import { credentials } from '../infrastructure/repositories';
 import { invites } from '../infrastructure/inviteRepository';
+import { people } from '../infrastructure/personRepository';
 
 export const InviteErrors = defineErrors({
   INVALID_IDENTIFIER: {
@@ -37,11 +38,25 @@ export const InviteErrors = defineErrors({
     messageKey: 'invite.error.notFound',
     httpStatus: 404,
   },
+  /** Neither an existing person nor a name to create one. */
+  NO_PERSON_GIVEN: {
+    code: 'NO_PERSON_GIVEN',
+    messageKey: 'invite.error.noPersonGiven',
+    httpStatus: 400,
+  },
 });
 
 export interface InviteStaffInput {
-  /** The person record already exists — `directory` owns creating it (§14.5). */
-  personId: PersonId;
+  /**
+   * An existing person, OR `person` below to create one.
+   *
+   * `directory` owns the person model, and this reaches into it deliberately:
+   * requiring an office to create a teacher on one screen and invite them on
+   * another is two screens for one thought, and the half-completed state in
+   * between is a person nobody can find.
+   */
+  personId?: PersonId | undefined;
+  person?: { nameBn: string; nameEn: string } | undefined;
   /** Phone or email. Becomes their login identifier if they have no account. */
   identifier: string;
   roleIds: RoleId[];
@@ -73,6 +88,8 @@ export async function inviteStaff(
   authorize(ctx, 'membership.manage');
   const now = deps.now?.() ?? new Date();
 
+  if (!input.personId && !input.person) return err(InviteErrors.NO_PERSON_GIVEN);
+
   const identifier = normaliseIdentifier(input.identifier);
   if (!identifier.ok) return err(InviteErrors.INVALID_IDENTIFIER);
 
@@ -95,9 +112,21 @@ export async function inviteStaff(
   );
 
   return withTenant(ctx, async (tx) => {
+    /*
+     * Created inside the transaction, so a person is never left behind by an
+     * invite that fails validation a line later.
+     */
+    const personId =
+      input.personId ??
+      (await people.create(tx, {
+        nameBn: input.person!.nameBn,
+        nameEn: input.person!.nameEn,
+        actorId: ctx.personId,
+      }));
+
     // Being invited twice to the same school is a mistake worth surfacing,
     // not a silent no-op.
-    if (await invites.membershipExists(tx, existing.accountId, input.personId)) {
+    if (await invites.membershipExists(tx, existing.accountId, personId)) {
       return err(InviteErrors.ALREADY_A_MEMBER);
     }
 
@@ -105,7 +134,7 @@ export async function inviteStaff(
     await invites.createMembership(tx, {
       id: membershipId,
       accountId: existing.accountId,
-      personId: input.personId,
+      personId,
       roleIds: input.roleIds,
       actorId: ctx.personId,
     });
@@ -117,7 +146,7 @@ export async function inviteStaff(
       await audit(tx, ctx, 'membership.granted', membershipId, {
         after: {
           membershipId,
-          personId: input.personId,
+          personId,
           accountId: existing.accountId,
           roleCount: input.roleIds.length,
           // The distinguishing fact: no link was minted, so there is nothing
@@ -135,7 +164,7 @@ export async function inviteStaff(
       accountId: existing.accountId,
       credentialId: existing.id,
       membershipId,
-      personId: input.personId,
+      personId,
       tokenHash: hash,
       expiresAt,
       invitedBy: ctx.personId,
@@ -148,7 +177,7 @@ export async function inviteStaff(
       entityType: 'invite',
       after: {
         membershipId,
-        personId: input.personId,
+        personId,
         accountId: existing.accountId,
         roleCount: input.roleIds.length,
         inviteLinkIssued: true,
