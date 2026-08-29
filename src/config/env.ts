@@ -9,15 +9,31 @@ import { z } from 'zod';
  * connection string, so `sm_platform` cannot be reached by accident from tenant
  * request code (§5.1).
  */
+/**
+ * An optional value that may arrive as an EMPTY STRING.
+ *
+ * A `.env` file expresses "not set" as `FOO=`, and dotenv-style loaders hand
+ * that through as `''` rather than dropping it. Plain `.optional()` then fails
+ * on a value the file was using to mean absent — which is exactly what
+ * `.env.example` ships for the replica URL and every optional credential.
+ *
+ * Blank-to-undefined at the boundary, so no caller has to remember.
+ */
+const optionalString = () =>
+  z
+    .string()
+    .transform((v) => (v.trim() === '' ? undefined : v))
+    .optional();
+
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_URL: z.url(),
   PLATFORM_HOST: z.string().min(1),
 
   DATABASE_URL_APP: z.string().min(1), // sm_app — no BYPASSRLS
-  DATABASE_URL_PLATFORM: z.string().min(1).optional(), // sm_platform — audited use only
-  DATABASE_URL_MIGRATOR: z.string().min(1).optional(), // migrations only
-  DATABASE_URL_READONLY: z.string().min(1).optional(), // replica, reporting
+  DATABASE_URL_PLATFORM: optionalString(), // sm_platform — audited use only
+  DATABASE_URL_MIGRATOR: optionalString(), // migrations only
+  DATABASE_URL_READONLY: optionalString(), // replica, reporting
   DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(15),
   DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15_000),
 
@@ -30,16 +46,16 @@ const EnvSchema = z.object({
   // database (§8.3).
   ARGON2_MEMORY_KIB: z.coerce.number().int().min(8192).default(19_456),
 
-  R2_ACCOUNT_ID: z.string().optional(),
-  R2_ACCESS_KEY_ID: z.string().optional(),
-  R2_SECRET_ACCESS_KEY: z.string().optional(),
-  R2_BUCKET: z.string().optional(),
+  R2_ACCOUNT_ID: optionalString(),
+  R2_ACCESS_KEY_ID: optionalString(),
+  R2_SECRET_ACCESS_KEY: optionalString(),
+  R2_BUCKET: optionalString(),
 
   SMS_PROVIDER: z.enum(['mock', 'provider_a', 'provider_b']).default('mock'),
-  SMS_API_KEY: z.string().optional(),
-  SMS_SENDER_ID: z.string().optional(),
+  SMS_API_KEY: optionalString(),
+  SMS_SENDER_ID: optionalString(),
 
-  SENTRY_DSN: z.string().optional(),
+  SENTRY_DSN: optionalString(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   // Platform timezone is fixed. A different value is a misconfiguration, not a

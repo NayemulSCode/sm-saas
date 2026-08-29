@@ -260,6 +260,17 @@ async function guardianPerson(tenantId: string, phone: string): Promise<PersonId
 async function main(): Promise<void> {
   console.log('Seeding development fixtures…\n');
 
+  /*
+   * The operator needs a real account row: audit_log.actor_account_id has a
+   * foreign key to account(id), and provisioning writes the school's first
+   * audit entry as this actor.
+   */
+  await admin.query(
+    `INSERT INTO account (id, status, locale) VALUES ($1, 'active', 'en')
+     ON CONFLICT DO NOTHING`,
+    [Ids.toUuid(operatorAccount)],
+  );
+
   // ── Tenant A: the demo school ──────────────────────────────────────────────
   const a = await provision(
     'demo',
