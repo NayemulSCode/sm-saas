@@ -44,6 +44,12 @@ export {
 export { getStudent } from './application/getStudent';
 
 export {
+  listStudents,
+  type ListStudentsInput,
+  type StudentRow,
+} from './application/listStudents';
+
+export {
   STUDENT_STATUSES,
   evaluateTransition,
   legalNextStatuses,
