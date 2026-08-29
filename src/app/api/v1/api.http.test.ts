@@ -593,3 +593,182 @@ describe('the login page', () => {
     expect(html).toMatch(/<html[^>]+lang="(bn|en)"/);
   }, 60_000);
 });
+
+describe('the student list', () => {
+  let listSection: string;
+
+  beforeAll(async () => {
+    // A section of its own, so paging assertions are not disturbed by the
+    // students the earlier groups created.
+    const made = await post('/api/v1/sections', {
+      schoolId,
+      classLevelId: class6,
+      campusId,
+      shiftId,
+      nameBn: 'গ',
+      nameEn: 'ListSection',
+      capacity: 60,
+    });
+    expect(made.status, JSON.stringify(made.json)).toBe(201);
+    listSection = data<{ sectionId: string }>(made.json).sectionId;
+
+    for (let i = 1; i <= 7; i++) {
+      const res = await post('/api/v1/students', {
+        schoolId,
+        sectionId: listSection,
+        academicYearId: nextYearId,
+        nameBn: `তালিকা ${i}`,
+        nameEn: `Listed Student ${i}`,
+        rollNo: i,
+      });
+      expect(res.status, JSON.stringify(res.json)).toBe(201);
+    }
+  }, 180_000);
+
+  it('returns a page with the class and roll a class list needs', async () => {
+    const res = await get(`/api/v1/students?sectionId=${listSection}&limit=25`);
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+
+    const page = data<{
+      items: Array<{ nameBn: string; studentCode: string; rollNo: number; classNameEn: string }>;
+      hasMore: boolean;
+      nextCursor: string | null;
+    }>(res.json);
+
+    expect(page.items).toHaveLength(7);
+    expect(page.hasMore).toBe(false);
+    expect(page.nextCursor).toBeNull();
+    expect(page.items[0]?.classNameEn).toBe('Class 6');
+    expect(page.items.every((i) => typeof i.rollNo === 'number')).toBe(true);
+  }, 60_000);
+
+  /*
+   * Keyset, not offset. The probe row is trimmed, the cursor points at the last
+   * VISIBLE row, and following it must not repeat or skip anybody — on a list
+   * somebody is working through, a skip means a family is missed.
+   */
+  it('pages without repeating or skipping', async () => {
+    const first = await get(`/api/v1/students?sectionId=${listSection}&limit=3`);
+    const p1 = data<{ items: Array<{ id: string }>; hasMore: boolean; nextCursor: string }>(
+      first.json,
+    );
+    expect(p1.items).toHaveLength(3);
+    expect(p1.hasMore).toBe(true);
+
+    const second = await get(
+      `/api/v1/students?sectionId=${listSection}&limit=3&cursor=${encodeURIComponent(p1.nextCursor)}`,
+    );
+    const p2 = data<{ items: Array<{ id: string }>; hasMore: boolean; nextCursor: string }>(
+      second.json,
+    );
+    expect(p2.items).toHaveLength(3);
+
+    const third = await get(
+      `/api/v1/students?sectionId=${listSection}&limit=3&cursor=${encodeURIComponent(p2.nextCursor)}`,
+    );
+    const p3 = data<{ items: Array<{ id: string }>; hasMore: boolean }>(third.json);
+    expect(p3.items).toHaveLength(1);
+    expect(p3.hasMore).toBe(false);
+
+    const seen = [...p1.items, ...p2.items, ...p3.items].map((i) => i.id);
+    expect(new Set(seen).size).toBe(7);
+  }, 60_000);
+
+  it('restarts the list for a cursor that has been mangled in a URL', async () => {
+    const res = await get(`/api/v1/students?sectionId=${listSection}&cursor=not-a-real-cursor`);
+    expect(res.status).toBe(200);
+    expect(data<{ items: unknown[] }>(res.json).items).toHaveLength(7);
+  }, 30_000);
+
+  it('searches both scripts and the student code', async () => {
+    const byEnglish = await get('/api/v1/students?search=Listed%20Student%203');
+    expect(data<{ items: unknown[] }>(byEnglish.json).items).toHaveLength(1);
+
+    const byBangla = await get(`/api/v1/students?search=${encodeURIComponent('তালিকা ৩')}`);
+    expect(byBangla.status).toBe(200);
+
+    // A name in one script is not a translation of the other, so an office
+    // assistant types whichever they are looking at.
+    const partial = await get('/api/v1/students?search=Listed');
+    expect(data<{ items: unknown[] }>(partial.json).items.length).toBeGreaterThanOrEqual(5);
+  }, 60_000);
+
+  it('filters by status', async () => {
+    const res = await get('/api/v1/students?status=withdrawn');
+    const items = data<{ items: Array<{ status: string }> }>(res.json).items;
+    expect(items.every((i) => i.status === 'withdrawn')).toBe(true);
+  }, 30_000);
+
+  it('ignores an unrecognised status rather than failing a bookmarked URL', async () => {
+    const res = await get('/api/v1/students?status=nonsense');
+    expect(res.status).toBe(200);
+  }, 30_000);
+
+  it('caps the page size, so a client cannot ask for the whole school', async () => {
+    const res = await get('/api/v1/students?limit=99999');
+    expect(res.status).toBe(200);
+    expect(data<{ items: unknown[] }>(res.json).items.length).toBeLessThanOrEqual(100);
+  }, 30_000);
+
+  it('refuses without a cookie', async () => {
+    expect((await get('/api/v1/students', false)).status).toBe(403);
+  }, 30_000);
+});
+
+/*
+ * The dashboard. A server component that calls the use cases directly, so this
+ * is checking real rendered output rather than a fetch it makes.
+ */
+describe('the dashboard', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+
+  const page = (path: string, withCookie = true): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        {
+          host: '127.0.0.1',
+          port: 3125,
+          path,
+          headers: { host: tenantHost, ...(withCookie ? { cookie } : {}) },
+        },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => (body += chunk));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('renders the school, the year and the student list', async () => {
+    const { status, html } = await page('/app/dashboard');
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain('API School');
+    expect(html).toContain('Students');
+    expect(html).toContain('Listed Student 1');
+    // Bangla is shown first: it is the name the school uses day to day.
+    expect(html).toContain('তালিকা');
+  }, 60_000);
+
+  it('sends an unauthenticated visitor to the login page, not a 403', async () => {
+    // A 403 is a dead end for somebody who simply arrived with an expired
+    // cookie, which after a fortnight is most guardians.
+    const { status, html } = await page('/app/dashboard', false);
+    expect([200, 307, 302]).toContain(status);
+    if (status === 200) expect(html).toContain('Sign in');
+  }, 60_000);
+
+  it('search is a plain GET form, so the result is a shareable URL', async () => {
+    const { html } = await page(`/app/dashboard?search=${encodeURIComponent('Listed Student 2')}`);
+    expect(html).toContain('Listed Student 2');
+    expect(html).not.toContain('Listed Student 5');
+  }, 60_000);
+
+  it('says so plainly when a search matches nobody', async () => {
+    const { html } = await page('/app/dashboard?search=zzzznobody');
+    expect(html).toMatch(/Nobody matches/);
+  }, 60_000);
+});

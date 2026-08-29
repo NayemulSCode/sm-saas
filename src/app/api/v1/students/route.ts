@@ -6,8 +6,18 @@
 import { admitStudent, AdmitStudentSchema } from '../../../../modules/directory/index';
 import type { AcademicYearId, SchoolId, SectionId } from '../../../../shared/ids';
 import { authed } from '../../_lib/handler';
+import { listStudentsHandler } from './list';
 
 export const runtime = 'nodejs';
+
+/**
+ * GET /api/v1/students
+ *
+ * Keyset paginated, scope narrowed IN SQL. A class teacher scoped to two
+ * sections receives two sections' worth of rows, not the school with the rest
+ * hidden by the client.
+ */
+export const GET = listStudentsHandler;
 
 export const POST = authed(
   AdmitStudentSchema,

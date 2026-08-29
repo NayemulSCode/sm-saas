@@ -2,13 +2,15 @@
  * Directory reads and writes. Everything runs inside `withTenant`.
  */
 
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Tx } from '../../../db/rls';
 import { enrolment, person, staff } from '../../../db/schema/directory';
 import { guardianLink, siblingGroup, siblingMember, student, studentStatusEvent } from '../../../db/schema/directoryStudents';
 import { personMerge, promotionBatch } from '../../../db/schema/directoryOps';
 import { membership } from '../../../db/schema/identity';
 import { classLevel, section } from '../../../db/schema/structure';
+import type { AuthContext } from '../../../shared/auth-context';
+import type { Cursor } from '../../../shared/keyset';
 import { Ids } from '../../../shared/ids';
 import type {
   AcademicYearId,
@@ -650,5 +652,97 @@ export const directory = {
         .set({ personId: loser, updatedBy: actorId })
         .where(inArray(membership.id, ids('memberships') as never[]));
     }
+  },
+
+  /**
+   * The student list, with scope narrowed IN SQL.
+   *
+   * `scope.sectionIds` present and non-empty restricts to those sections;
+   * present and EMPTY denies everything, because a misconfigured role must fail
+   * closed (§9.3); absent is unrestricted within the tenant, which RLS already
+   * bounds.
+   *
+   * The join to `enrolment` is LEFT: an applicant who has not been placed in a
+   * section yet still has to appear, or the admissions queue is invisible. It
+   * is narrowed to one academic year so a student with four years of history
+   * appears once rather than four times.
+   */
+  async searchStudents(
+    tx: Tx,
+    ctx: AuthContext,
+    input: {
+      sectionId?: string | undefined;
+      academicYearId?: string | undefined;
+      status?: string | undefined;
+      search?: string | undefined;
+      limit: number;
+      cursor?: Cursor | undefined;
+    },
+  ) {
+    const scopedSections = ctx.scope.sectionIds;
+
+    /*
+     * An empty scope array denies everything. Expressed as a predicate that
+     * matches nothing rather than by returning [] early, so the deny travels
+     * with the query and cannot be lost by a later refactor of the caller.
+     */
+    const scopePredicate =
+      scopedSections === undefined
+        ? undefined
+        : scopedSections.length === 0
+          ? sql`false`
+          : inArray(enrolment.sectionId, [...scopedSections] as never[]);
+
+    const search = input.search?.trim();
+    const searchPredicate = search
+      ? or(
+          // Both scripts, because a name in one is not a translation of the
+          // other and an office assistant types whichever they are looking at.
+          ilike(person.nameEn, `%${search}%`),
+          ilike(person.nameBn, `%${search}%`),
+          ilike(student.studentCode, `%${search}%`),
+        )
+      : undefined;
+
+    return tx
+      .select({
+        id: student.id,
+        studentCode: student.studentCode,
+        nameBn: person.nameBn,
+        nameEn: person.nameEn,
+        status: student.status,
+        rollNo: enrolment.rollNo,
+        sectionId: enrolment.sectionId,
+        sectionNameEn: section.nameEn,
+        classNameEn: classLevel.nameEn,
+      })
+      .from(student)
+      .innerJoin(person, eq(person.id, student.personId))
+      .leftJoin(
+        enrolment,
+        and(
+          eq(enrolment.studentId, student.id),
+          isNull(enrolment.deletedAt),
+          input.academicYearId
+            ? eq(enrolment.academicYearId, input.academicYearId as never)
+            : undefined,
+        ),
+      )
+      .leftJoin(section, eq(section.id, enrolment.sectionId))
+      .leftJoin(classLevel, eq(classLevel.id, section.classLevelId))
+      .where(
+        and(
+          isNull(student.deletedAt),
+          input.sectionId ? eq(enrolment.sectionId, input.sectionId as never) : undefined,
+          input.status ? eq(student.status, input.status as never) : undefined,
+          searchPredicate,
+          scopePredicate,
+          // Strictly less-than on a ULID id: newest first, and the id is its
+          // own tiebreaker because it is unique.
+          input.cursor ? lt(student.id, input.cursor.id as never) : undefined,
+        ),
+      )
+      .orderBy(desc(student.id))
+      .limit(input.limit);
   },
 };
