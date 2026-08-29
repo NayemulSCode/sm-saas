@@ -809,6 +809,73 @@ describe('the dashboard', () => {
     const { html } = await page('/app/dashboard?search=zzzznobody');
     expect(html).toMatch(/Nobody matches/);
   }, 60_000);
+
+  it('narrows the list to one section', async () => {
+    const all = await page('/app/dashboard');
+    expect(all.html).toContain('Listed Student 1');
+
+    // sectionB holds the promoted cohort; sectionA holds the listing fixtures.
+    const narrowed = await page(`/app/dashboard?sectionId=${sectionA}`);
+    expect(narrowed.status).toBe(200);
+    expect(narrowed.html).toContain('Every section');
+    expect(narrowed.html).toContain('Clear filters');
+  }, 60_000);
+
+  it('drops a filter the query string cannot mean, rather than failing', async () => {
+    /*
+     * A query string is user input: typed, bookmarked, edited, pasted. `status`
+     * is compared against a Postgres enum and the ids are converted to UUIDs,
+     * so an unrecognised value is a 500 rather than an empty list. Each of
+     * these must answer with the unfiltered page instead.
+     */
+    for (const bad of [
+      '?status=not-a-status',
+      '?sectionId=DROP-TABLE',
+      "?academicYearId=' OR 1=1--",
+    ]) {
+      const { status, html } = await page(`/app/dashboard${encodeURI(bad)}`);
+      expect(status, `${bad} should not break the page`).toBe(200);
+      expect(html).toContain('Listed Student 1');
+      // Nothing was applied, so nothing is offered to clear.
+      expect(html, `${bad} should not read as an active filter`).not.toContain('Clear filters');
+    }
+  }, 120_000);
+
+  it('answers a well-formed id from another school with no rows, not an error', async () => {
+    // RLS replies with nothing, which is the honest answer. Telling "no matches"
+    // apart from "not your section" is the leak the scope predicate prevents.
+    const { status, html } = await page('/app/dashboard?sectionId=01M16EGV000000000000000000');
+    expect(status).toBe(200);
+    expect(html).toMatch(/Nobody matches these filters/);
+  }, 60_000);
+
+  it('keeps the filters applied on a later page', async () => {
+    /*
+     * This school has seven students, so there is never a second page here and
+     * an assertion on the "Next 25" href would pass by never running. What CAN
+     * be asserted is the other half of the same property: a cursor in the URL
+     * must not displace the filters. A malformed cursor decodes to undefined
+     * and yields the first page — still filtered.
+     */
+    const { status, html } = await page('/app/dashboard?status=withdrawn&cursor=notacursor');
+    expect(status).toBe(200);
+    expect(html).toContain('Clear filters');
+
+    // One student was withdrawn earlier in the walkthrough, and the seven
+    // listing fixtures were not. If the cursor parameter had displaced the
+    // filter, all eight would be here.
+    expect(html).toContain('withdrawn');
+    expect(html).not.toContain('Listed Student 1');
+  }, 60_000);
+
+  it('resets to the first page when the filters change', async () => {
+    // The form carries no cursor field: a cursor is a keyset position inside
+    // ONE predicate, and reusing it across a changed filter resumes in the
+    // middle of a different list, skipping everybody before that point.
+    const { html } = await page('/app/dashboard?status=active');
+    const form = html.slice(html.indexOf('<form method="get"'), html.indexOf('</form>'));
+    expect(form).not.toContain('cursor');
+  }, 60_000);
 });
 
 describe('the student detail page', () => {
