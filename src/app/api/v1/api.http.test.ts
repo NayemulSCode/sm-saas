@@ -772,3 +772,45 @@ describe('the dashboard', () => {
     expect(html).toMatch(/Nobody matches/);
   }, 60_000);
 });
+
+describe('the student detail page', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+
+  const page = (path: string): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost, cookie } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (c: string) => (body += c));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('shows the student, their history and the withdraw action', async () => {
+    const list = await get('/api/v1/students?limit=1');
+    const student = data<{ items: Array<{ id: string; studentCode: string }> }>(list.json)
+      .items[0]!;
+
+    const { status, html } = await page(`/app/students/${student.id}`);
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain(student.studentCode);
+    expect(html).toContain('Guardians');
+    expect(html).toContain('History');
+    expect(html).toContain('Withdraw student');
+  }, 60_000);
+
+  /*
+   * A student in another school is ABSENT, not forbidden. RLS makes the row
+   * invisible, and a 403 would confirm the id exists somewhere on the platform.
+   */
+  it('answers 404 for a student that does not exist', async () => {
+    const { status } = await page(`/app/students/${nid()}`);
+    expect(status).toBe(404);
+  }, 60_000);
+});

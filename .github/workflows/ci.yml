@@ -172,6 +172,15 @@ jobs:
       - name: Migrations are idempotent
         run: pnpm db:migrate
 
+      # A demo fixture that nobody runs is a demo that fails in front of a
+      # client. It builds its school through the real use cases, so this also
+      # exercises provisionTenant → createSection → admitStudent → linkGuardian
+      # as one continuous sequence.
+      - name: Development fixtures
+        run: pnpm demo
+        env:
+          DEMO_STUDENTS: 12
+
       # §36: "an untested backup is not a backup, and the single most common
       # way small teams lose data is discovering at restore time that the
       # backups were empty for months." So the drill runs on every push, not
