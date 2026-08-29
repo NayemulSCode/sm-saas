@@ -46,7 +46,15 @@ function surfaceOf(route: string): keyof typeof SURFACE_BUDGETS_KB | 'other' {
   // classification we want: (guardian) vs (staff) is the whole point of
   // separating them.
   if (route.includes('(guardian)')) return 'guardian';
-  if (route.includes('(staff)') || route.includes('(auth)')) return 'staff';
+  /*
+   * (auth) is GUARDIAN, not staff. Both use the same login page, and a budget
+   * has to hold for the tightest audience that reaches the route — a guardian
+   * on a cheap handset at a school gate, not an office desktop. Classifying it
+   * as staff would give it 180 KB and let a 170 KB login page ship to the
+   * people least able to load it.
+   */
+  if (route.includes('(auth)')) return 'guardian';
+  if (route.includes('(staff)')) return 'staff';
   if (route.includes('/platform')) return 'platform';
   if (route.includes('/marketing')) return 'marketing';
   if (/\/s\/\[slug\]\/page$/.test(route)) return 'publicSite';
