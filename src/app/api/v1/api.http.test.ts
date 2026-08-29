@@ -28,7 +28,15 @@ const uuid = (v: string) => Ids.toUuid(v as never);
 
 const STAMP = Date.now();
 const PLAN_CODE = 'standard';
-const OWNER_PHONE = '+8801777000111';
+/*
+ * Stamped, not constant. The slug is already per-run, but a phone is unique as
+ * a LOGIN IDENTIFIER across tenants — so a fixed one hands run N+1 the same
+ * account, now holding N memberships. Login then resolves to several contexts,
+ * activates none, and every later call answers NO_ACTIVE_CONTEXT. CI never sees
+ * it because CI starts from an empty database; a developer's machine does, on
+ * the second run.
+ */
+const OWNER_PHONE = `+88017${String(STAMP).slice(-8)}`;
 
 let server: TestServer;
 let admin: Pool;
@@ -140,7 +148,7 @@ describe('logging in over HTTP', () => {
     const requested = await post('/api/v1/auth/otp/request', { identifier: OWNER_PHONE }, false);
     expect(requested.status).toBe(200);
 
-    const code = server.lastOtpCode();
+    const code = await server.waitForOtpCode();
     expect(code, 'the mock dispatcher should have logged a code').toMatch(/^\d{6}$/);
 
     const res = await fetch(`${server.url}/api/v1/auth/otp/verify`, {
@@ -1120,9 +1128,118 @@ describe('the structure and staff pages', () => {
     expect(html).toContain('This is you');
   }, 60_000);
 
-  it('links both screens from the dashboard', async () => {
+  /*
+   * The tenant is carried by the HOST, so a link must never contain the slug.
+   * Middleware REWRITES `/bn/app/x` onto the internal `/bn/s/<slug>/app/x`;
+   * link to that internal path and it is rewritten a second time, to
+   * `/bn/s/<slug>/s/<slug>/app/x`, which 404s. Asserting `toContain('/app/staff')`
+   * does not catch it — the broken path contains that substring too. So this
+   * asserts the shape of every href, and then actually follows them.
+   */
+  it('links to public paths that carry no slug', async () => {
     const { html } = await page('/app/dashboard');
-    expect(html).toContain('/app/structure');
-    expect(html).toContain('/app/staff');
+
+    const hrefs = [...html.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]!);
+    expect(hrefs.length).toBeGreaterThan(3);
+
+    for (const href of hrefs) {
+      expect(href, `${href} leaks the internal rewrite target`).not.toMatch(/\/s\//);
+    }
+    expect(hrefs.some((h) => h.endsWith('/app/structure'))).toBe(true);
+    expect(hrefs.some((h) => h.endsWith('/app/staff'))).toBe(true);
   }, 60_000);
+
+  it('serves every page the dashboard links to', async () => {
+    const { html } = await page('/app/dashboard');
+    const hrefs = [...new Set([...html.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]!))];
+
+    for (const href of hrefs) {
+      const { status } = await page(href);
+      expect(status, `${href} is linked from the dashboard but answers ${status}`).toBe(200);
+    }
+  }, 120_000);
+
+  it('sends a signed-in staff member to a dashboard that exists', async () => {
+    // The bug this pins: sign in succeeds, the cookie is set, and the browser
+    // lands on a 404 with a plausible-looking URL.
+    const { status } = await page('/bn/app/dashboard');
+    expect(status).toBe(200);
+  }, 60_000);
+});
+
+describe('accepting an invite', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+  let token: string;
+
+  const page = (path: string): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (c: string) => (body += c));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('issues a link that actually resolves to a page', async () => {
+    const invite = await post('/api/v1/staff/invites', {
+      person: { nameBn: 'হিসাবরক্ষক', nameEn: 'Bursar' },
+      identifier: `bursar-${STAMP}@api.example.bd`,
+    });
+    expect(invite.status, JSON.stringify(invite.json)).toBe(201);
+    token = data<{ inviteToken: string }>(invite.json).inviteToken;
+
+    // The staff screen prints `/app/invite/accept?token=…`. If that 404s, every
+    // invite the school sends is dead on arrival — and the office finds out
+    // from the teacher, not from us.
+    const { status, html } = await page(`/app/invite/accept?token=${token}`);
+    expect(status, html.slice(0, 300)).toBe(200);
+    expect(html).toContain('Set your password');
+  }, 60_000);
+
+  it('refuses a token that was never issued, without saying why', async () => {
+    const res = await post(
+      '/api/v1/auth/invite/accept',
+      { token: 'z'.repeat(40), password: 'a-good-password' },
+      false,
+    );
+    expect(res.status).toBe(400);
+    // One code for unknown, expired, revoked and spent: telling them apart
+    // lets a holder of a dead link probe which tokens ever existed.
+    expect(errorCode(res.json)).toBe('INVITE_INVALID');
+  }, 30_000);
+
+  it('sets the password, opens a session, and burns the link', async () => {
+    const accept = await fetch(`${server.url}/api/v1/auth/invite/accept`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, password: 'bursar-password-1' }),
+    });
+    expect(accept.status).toBe(200);
+    // Signed in on the spot — bouncing somebody to a login form for a password
+    // they set two seconds ago is how an invite flow feels unfinished.
+    expect(accept.headers.get('set-cookie') ?? '').toContain('HttpOnly');
+
+    const replay = await post(
+      '/api/v1/auth/invite/accept',
+      { token, password: 'a-different-password' },
+      false,
+    );
+    expect(replay.status).toBe(400);
+    expect(errorCode(replay.json)).toBe('INVITE_INVALID');
+  }, 60_000);
+
+  it('lets them sign in afterwards with the password they chose', async () => {
+    const res = await post(
+      '/api/v1/auth/password',
+      { identifier: `bursar-${STAMP}@api.example.bd`, password: 'bursar-password-1' },
+      false,
+    );
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+  }, 30_000);
 });

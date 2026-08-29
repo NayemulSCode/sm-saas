@@ -21,6 +21,7 @@ import {
   CloseYear,
   type Option,
 } from './StructureForms';
+import { appPath } from '../../../../../../../shared/paths';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,8 +30,8 @@ export default async function StructurePage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<React.JSX.Element> {
-  const { locale, slug } = await params;
-  const base = `/${locale}/s/${slug}/app`;
+  const { locale } = await params;
+  const base = appPath(locale);
 
   const token = await readSessionToken();
   if (!token) redirect(`${base}/login`);

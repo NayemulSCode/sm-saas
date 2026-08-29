@@ -17,9 +17,26 @@ const ADMIN_URL = process.env.DATABASE_URL_MIGRATOR;
 const nid = <T extends string = 'x'>() => Ids.generate<T>();
 const uuid = (v: string) => Ids.toUuid(v as never);
 
-const PHONE = '+8801911223344';
-const PHONE_NATIONAL = '01911223344';
-const UNKNOWN_PHONE = '+8801955667788';
+/*
+ * Per-run natural keys.
+ *
+ * The ids above are fresh every run, but slugs, plan codes and phone numbers
+ * are NATURAL keys with unique constraints, and every fixture insert says
+ * `ON CONFLICT DO NOTHING`. Hold them constant and the second run silently
+ * skips the insert, leaving the freshly generated id pointing at nothing — the
+ * failure surfaces later as a foreign-key violation on an unrelated table. CI
+ * starts from an empty database and never sees it; a developer's machine sees
+ * it on run two.
+ */
+const STAMP = String(Date.now()).slice(-8);
+
+const SLUG_A = `http-a-${STAMP}`;
+const SLUG_B = `http-b-${STAMP}`;
+
+const PHONE = `+88019${STAMP}`;
+/** The same number as PHONE, written the way a person types it. */
+const PHONE_NATIONAL = PHONE.slice(3);
+const UNKNOWN_PHONE = `+88015${STAMP}`;
 
 const PLAN = nid();
 const TENANT_A = nid();
@@ -58,12 +75,12 @@ beforeAll(async () => {
 
   await admin.query(
     `INSERT INTO plan (id, code, name_bn, name_en, price_minor, billing_period)
-     VALUES ($1,'http-int','পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
-    [uuid(PLAN)],
+     VALUES ($1,$2,'পরীক্ষা','Test',0,'monthly') ON CONFLICT DO NOTHING`,
+    [uuid(PLAN), `http-int-${STAMP}`],
   );
   for (const [t, slug] of [
-    [TENANT_A, 'http-a'],
-    [TENANT_B, 'http-b'],
+    [TENANT_A, SLUG_A],
+    [TENANT_B, SLUG_B],
   ] as const) {
     await admin.query(
       `INSERT INTO tenant (id, slug, name_bn, name_en, plan_id, status)
@@ -175,7 +192,7 @@ describe('the full login round trip', () => {
     ]);
     await post('/api/v1/auth/otp/request', { identifier: PHONE });
 
-    const code = server.lastOtpCode();
+    const code = await server.waitForOtpCode();
     expect(code, 'the mock dispatcher should have logged a code').toMatch(/^\d{6}$/);
 
     const res = await post('/api/v1/auth/otp/verify', { identifier: PHONE, code });
@@ -215,7 +232,7 @@ describe('the full login round trip', () => {
     expect(listed.status).toBe(200);
     expect(list.data.contexts).toHaveLength(2);
 
-    const target = list.data.contexts.find((c) => c.tenantSlug === 'http-b');
+    const target = list.data.contexts.find((c) => c.tenantSlug === SLUG_B);
     expect(target).toBeDefined();
 
     const activated = await post(
@@ -229,7 +246,7 @@ describe('the full login round trip', () => {
     const list2 = (await after.json()) as {
       data: { contexts: Array<{ tenantSlug: string; isActive: boolean }> };
     };
-    expect(list2.data.contexts.find((c) => c.isActive)?.tenantSlug).toBe('http-b');
+    expect(list2.data.contexts.find((c) => c.isActive)?.tenantSlug).toBe(SLUG_B);
   });
 
   it('logout revokes the session, and the cookie stops working', async () => {

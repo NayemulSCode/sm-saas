@@ -13,7 +13,7 @@ export default async function LoginPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<React.JSX.Element> {
-  const { locale, slug } = await params;
+  const { locale } = await params;
 
   return (
     <main className="mx-auto max-w-sm p-8">
@@ -21,7 +21,7 @@ export default async function LoginPage({
       <p className="mt-2 mb-6 text-[var(--color-text-muted)]">
         Guardians sign in with a code sent to their phone. Staff use a password.
       </p>
-      <LoginForm slug={slug} locale={locale} />
+      <LoginForm locale={locale} />
     </main>
   );
 }

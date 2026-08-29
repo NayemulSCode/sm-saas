@@ -17,6 +17,7 @@ import { can } from '../../../../../../../../shared/auth-context';
 import { WithdrawButton } from './WithdrawButton';
 import { Guardians, type GuardianRow } from './Guardians';
 import { EditDetails, type EditableStudent } from './EditDetails';
+import { appPath } from '../../../../../../../../shared/paths';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +53,8 @@ export default async function StudentPage({
 }: {
   params: Promise<{ locale: string; slug: string; studentId: string }>;
 }): Promise<React.JSX.Element> {
-  const { locale, slug, studentId } = await params;
-  const base = `/${locale}/s/${slug}/app`;
+  const { locale, studentId } = await params;
+  const base = appPath(locale);
 
   const token = await readSessionToken();
   if (!token) redirect(`${base}/login`);
