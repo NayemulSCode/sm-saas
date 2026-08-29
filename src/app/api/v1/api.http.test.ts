@@ -814,3 +814,182 @@ describe('the student detail page', () => {
     expect(status).toBe(404);
   }, 60_000);
 });
+
+describe('editing a student', () => {
+  let studentId: string;
+  let version: number;
+
+  beforeAll(async () => {
+    const made = await post('/api/v1/students', {
+      schoolId,
+      sectionId: sectionA,
+      academicYearId: nextYearId,
+      nameBn: 'সম্পাদনা পরীক্ষা',
+      nameEn: 'Edit Test',
+    });
+    expect(made.status, JSON.stringify(made.json)).toBe(201);
+    studentId = data<{ studentId: string }>(made.json).studentId;
+
+    const read = await get(`/api/v1/students/${studentId}`);
+    version = data<{ student: { version: number } }>(read.json).student.version;
+  }, 60_000);
+
+  it('round-trips Bangla unharmed', async () => {
+    const read = await get(`/api/v1/students/${studentId}`);
+    // Conjuncts and a ya-phala: the shapes that break when an encoding is
+    // wrong anywhere between the form and the column.
+    expect(data<{ student: { nameBn: string } }>(read.json).student.nameBn).toBe(
+      'সম্পাদনা পরীক্ষা',
+    );
+  }, 30_000);
+
+  it('saves a change and bumps the version', async () => {
+    const res = await patch(`/api/v1/students/${studentId}`, {
+      version,
+      nameEn: 'Edited Name',
+      house: 'Blue',
+    });
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+    expect(data<{ version: number }>(res.json).version).toBe(version + 1);
+  }, 30_000);
+
+  /*
+   * Two office assistants at one counter — one with the paper form, one with
+   * the parent on the phone — is the ordinary case, and last-write-wins
+   * silently discards whichever of them saved first.
+   */
+  it('refuses a stale version with 409 rather than overwriting', async () => {
+    const res = await patch(`/api/v1/students/${studentId}`, {
+      version,
+      nameEn: 'Should Not Land',
+    });
+    expect(res.status).toBe(409);
+    expect(errorCode(res.json)).toBe('CONCURRENT_MODIFICATION');
+
+    const read = await get(`/api/v1/students/${studentId}`);
+    expect(data<{ student: { nameEn: string } }>(read.json).student.nameEn).toBe('Edited Name');
+  }, 30_000);
+
+  it('clears a field when sent null, distinct from omitting it', async () => {
+    const read = await get(`/api/v1/students/${studentId}`);
+    const v = data<{ student: { version: number } }>(read.json).student.version;
+
+    const res = await patch(`/api/v1/students/${studentId}`, { version: v, house: null });
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+
+    const after = await get(`/api/v1/students/${studentId}`);
+    const student = data<{ student: { house: string | null; nameEn: string } }>(after.json)
+      .student;
+    expect(student.house).toBeNull();
+    // The omitted field was left alone rather than nulled with it.
+    expect(student.nameEn).toBe('Edited Name');
+  }, 60_000);
+
+  it('rejects a phone that is not E.164 Bangladesh', async () => {
+    const read = await get(`/api/v1/students/${studentId}`);
+    const v = data<{ student: { version: number } }>(read.json).student.version;
+
+    const res = await patch(`/api/v1/students/${studentId}`, { version: v, phone: '01711223344' });
+    expect(res.status).toBe(400);
+  }, 30_000);
+});
+
+describe('adding a guardian who is not on file yet', () => {
+  let studentId: string;
+
+  beforeAll(async () => {
+    const made = await post('/api/v1/students', {
+      schoolId,
+      sectionId: sectionA,
+      academicYearId: nextYearId,
+      nameBn: 'অভিভাবক পরীক্ষা',
+      nameEn: 'Guardian Test',
+    });
+    studentId = data<{ studentId: string }>(made.json).studentId;
+  }, 60_000);
+
+  /*
+   * A new admission's father is not on file, and making the office create him
+   * on a separate screen first is two screens for one thought.
+   */
+  it('creates the person and links them in one call', async () => {
+    const res = await post(`/api/v1/students/${studentId}/guardians`, {
+      person: { nameBn: 'করিম আহমেদ', nameEn: 'Karim Ahmed', phone: '+8801798000001' },
+      relationship: 'father',
+      isBillingGuardian: true,
+      isPrimaryContact: true,
+    });
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+
+    const read = await get(`/api/v1/students/${studentId}`);
+    const guardians = data<{ guardians: Array<{ nameBn: string; phone: string }> }>(read.json)
+      .guardians;
+    expect(guardians).toHaveLength(1);
+    expect(guardians[0]?.nameBn).toBe('করিম আহমেদ');
+    expect(guardians[0]?.phone).toBe('+8801798000001');
+  }, 60_000);
+
+  // Naming both is ambiguous — which one is the guardian? Refused rather than
+  // resolved by a precedence rule nobody would remember.
+  it('refuses both an existing person and a new one', async () => {
+    const read = await get(`/api/v1/students/${studentId}`);
+    const existing = data<{ guardians: Array<{ guardianPersonId: string }> }>(read.json)
+      .guardians[0]!;
+
+    const res = await post(`/api/v1/students/${studentId}/guardians`, {
+      guardianPersonId: existing.guardianPersonId,
+      person: { nameBn: 'ক', nameEn: 'K' },
+      relationship: 'guardian',
+    });
+    expect(res.status).toBe(400);
+  }, 30_000);
+
+  it('refuses neither', async () => {
+    const res = await post(`/api/v1/students/${studentId}/guardians`, {
+      relationship: 'guardian',
+    });
+    expect(res.status).toBe(400);
+  }, 30_000);
+
+  it('links an existing person by id', async () => {
+    const res = await post(`/api/v1/students/${studentId}/guardians`, {
+      person: { nameBn: 'নাসিমা আহমেদ', nameEn: 'Nasima Ahmed' },
+      relationship: 'mother',
+      isPrimaryContact: true,
+    });
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+    // Claiming primary contact demotes the incumbent, in one transaction.
+    expect(data<{ demoted: string[] }>(res.json).demoted).toHaveLength(1);
+  }, 30_000);
+});
+
+describe('the admit form page', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+
+  const page = (path: string): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost, cookie } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (c: string) => (body += c));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('renders with the section list already filled in', async () => {
+    const { status, html } = await page('/app/students/new');
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain('Admit a student');
+    expect(html).toContain('Name (Bangla)');
+    expect(html).toContain('Name (English)');
+    // Sections come from the server, so the dropdown is populated in the first
+    // response rather than a second after somebody starts typing.
+    expect(html).toMatch(/Class \d+ — [A-Z]/);
+  }, 60_000);
+});

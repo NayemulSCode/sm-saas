@@ -20,7 +20,10 @@ export const POST = authed<
   (ctx, input, params) =>
     linkGuardian(ctx, {
       studentId: params.studentId as StudentId,
-      guardianPersonId: input.guardianPersonId as PersonId,
+      ...(input.guardianPersonId !== undefined
+        ? { guardianPersonId: input.guardianPersonId as PersonId }
+        : {}),
+      ...(input.person !== undefined ? { person: input.person } : {}),
       relationship: input.relationship,
       isBillingGuardian: input.isBillingGuardian,
       isPrimaryContact: input.isPrimaryContact,

@@ -45,17 +45,33 @@ export const WithdrawStudentSchema = z.object({
   effectiveDate: zLocalDate.optional(),
 });
 
-export const LinkGuardianSchema = z.object({
-  /** An existing person. `directory` does not invent guardians. */
-  guardianPersonId: zUlid(),
-  relationship: zRelationship,
+export const LinkGuardianSchema = z
+  .object({
+    /** An existing person… */
+    guardianPersonId: zUlid().optional(),
+    /** …or the details to create one. Exactly one of the two. */
+    person: z
+      .object({
+        nameBn: zNameBn,
+        nameEn: zNameEn,
+        phone: zPhoneBd.optional(),
+        email: z.email().optional(),
+      })
+      .optional(),
+    relationship: zRelationship,
   /** Who OWES. */
-  isBillingGuardian: z.boolean().default(false),
-  /** Who is TOLD. */
-  isPrimaryContact: z.boolean().default(false),
-  canReceiveResults: z.boolean().default(true),
-  canCollectStudent: z.boolean().default(true),
-});
+    isBillingGuardian: z.boolean().default(false),
+    /** Who is TOLD. */
+    isPrimaryContact: z.boolean().default(false),
+    canReceiveResults: z.boolean().default(true),
+    canCollectStudent: z.boolean().default(true),
+  })
+  // Naming both is ambiguous: which one is the guardian? Refused rather than
+  // resolved by precedence, which nobody would remember.
+  .refine((v) => Boolean(v.guardianPersonId) !== Boolean(v.person), {
+    message: 'directory.error.noGuardianGiven',
+    path: ['guardianPersonId'],
+  });
 
 export const UnlinkGuardianSchema = z.object({
   guardianPersonId: zUlid(),
@@ -93,4 +109,18 @@ export const MergePersonsSchema = z.object({
 
 export const UnmergePersonsSchema = z.object({
   reason: zShortReason,
+});
+
+export const UpdateStudentSchema = z.object({
+  /** What the editor was shown. A mismatch is a 409, not a silent overwrite. */
+  version: z.number().int().nonnegative(),
+  nameBn: zNameBn.optional(),
+  nameEn: zNameEn.optional(),
+  dateOfBirth: zLocalDate.nullable().optional(),
+  gender: zGender.nullable().optional(),
+  phone: zPhoneBd.nullable().optional(),
+  email: z.email().nullable().optional(),
+  house: z.string().trim().max(60).nullable().optional(),
+  religion: z.string().trim().max(60).nullable().optional(),
+  bloodGroup: z.string().trim().max(8).nullable().optional(),
 });

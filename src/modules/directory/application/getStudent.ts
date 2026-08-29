@@ -21,13 +21,17 @@ export async function getStudent(
       const found = await directory.studentById(tx, studentId);
       if (!found) return err(AdmissionErrors.STUDENT_NOT_FOUND);
 
+      // The edit form and the guardian list both read from here, so the
+      // version comes back too — an editor without it cannot lock optimistically.
+      const editable = await directory.studentForEdit(tx, studentId);
+
       const [enrolments, guardians, history] = await Promise.all([
         directory.enrolmentsFor(tx, studentId),
-        directory.linksFor(tx, studentId),
+        directory.guardiansWithPeople(tx, studentId),
         directory.statusHistory(tx, studentId),
       ]);
 
-      return ok({ student: found, enrolments, guardians, history });
+      return ok({ student: { ...found, ...editable }, enrolments, guardians, history });
     },
     { readOnly: true },
   );

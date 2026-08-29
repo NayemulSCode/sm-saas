@@ -745,4 +745,115 @@ export const directory = {
       .orderBy(desc(student.id))
       .limit(input.limit);
   },
+
+  /** The editable shape of a student: their own row plus their person row. */
+  async studentForEdit(tx: Tx, id: StudentId) {
+    const [row] = await tx
+      .select({
+        personId: student.personId,
+        version: student.version,
+        nameBn: person.nameBn,
+        nameEn: person.nameEn,
+        dateOfBirth: person.dateOfBirth,
+        gender: person.gender,
+        phone: person.phone,
+        email: person.email,
+        house: student.house,
+        religion: student.religion,
+        bloodGroup: student.bloodGroup,
+      })
+      .from(student)
+      .innerJoin(person, eq(person.id, student.personId))
+      .where(and(eq(student.id, id), isNull(student.deletedAt)))
+      .limit(1);
+    return row;
+  },
+
+  /**
+   * Bumps `version` only if it still matches what the editor was shown.
+   *
+   * Returns undefined when it does not — which is a 409, not a retry. Somebody
+   * else saved a correction in between, and silently overwriting it is the
+   * thing this column exists to prevent.
+   *
+   * The UPDATE always runs even when `patch` is empty, because bumping the
+   * version is how a person-only edit still takes part in the locking.
+   */
+  async updateStudentVersioned(
+    tx: Tx,
+    id: StudentId,
+    expectedVersion: number,
+    patch: { house?: string | null; religion?: string | null; bloodGroup?: string | null },
+    actorId: PersonId,
+  ): Promise<number | undefined> {
+    const rows = await tx
+      .update(student)
+      .set({
+        ...(patch.house !== undefined ? { house: patch.house } : {}),
+        ...(patch.religion !== undefined ? { religion: patch.religion } : {}),
+        ...(patch.bloodGroup !== undefined ? { bloodGroup: patch.bloodGroup } : {}),
+        version: sql`${student.version} + 1`,
+        updatedBy: actorId,
+      })
+      .where(
+        and(
+          eq(student.id, id),
+          eq(student.version, expectedVersion),
+          isNull(student.deletedAt),
+        ),
+      )
+      .returning({ version: student.version });
+    return rows[0]?.version;
+  },
+
+  async updatePerson(
+    tx: Tx,
+    id: PersonId,
+    patch: {
+      nameBn?: string;
+      nameEn?: string;
+      dateOfBirth?: LocalDate | null;
+      gender?: 'male' | 'female' | 'other' | null;
+      phone?: string | null;
+      email?: string | null;
+    },
+    actorId: PersonId,
+  ): Promise<void> {
+    await tx
+      .update(person)
+      .set({
+        // NFC on write, here as well as at admission: an edit is a write path
+        // too, and a name corrected through this route must compare equal to
+        // one entered through the other.
+        ...(patch.nameBn !== undefined ? { nameBn: patch.nameBn.normalize('NFC') } : {}),
+        ...(patch.nameEn !== undefined ? { nameEn: patch.nameEn.normalize('NFC') } : {}),
+        ...(patch.dateOfBirth !== undefined ? { dateOfBirth: patch.dateOfBirth } : {}),
+        ...(patch.gender !== undefined ? { gender: patch.gender } : {}),
+        ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
+        ...(patch.email !== undefined ? { email: patch.email } : {}),
+        updatedBy: actorId,
+      })
+      .where(eq(person.id, id));
+  },
+
+  /** Guardian rows carry the person's name and phone, for the detail screen. */
+  async guardiansWithPeople(tx: Tx, studentId: StudentId) {
+    return tx
+      .select({
+        id: guardianLink.id,
+        guardianPersonId: guardianLink.guardianPersonId,
+        relationship: guardianLink.relationship,
+        isBillingGuardian: guardianLink.isBillingGuardian,
+        isPrimaryContact: guardianLink.isPrimaryContact,
+        canReceiveResults: guardianLink.canReceiveResults,
+        canCollectStudent: guardianLink.canCollectStudent,
+        nameBn: person.nameBn,
+        nameEn: person.nameEn,
+        phone: person.phone,
+      })
+      .from(guardianLink)
+      .innerJoin(person, eq(person.id, guardianLink.guardianPersonId))
+      .where(and(eq(guardianLink.studentId, studentId), isNull(guardianLink.deletedAt)))
+      .orderBy(asc(guardianLink.sequence));
+  },
 };

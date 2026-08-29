@@ -15,6 +15,8 @@ import type { StudentId } from '../../../../../../../../shared/ids';
 import { readSessionToken } from '../../../../../../../api/_lib/session-cookie';
 import { can } from '../../../../../../../../shared/auth-context';
 import { WithdrawButton } from './WithdrawButton';
+import { Guardians, type GuardianRow } from './Guardians';
+import { EditDetails, type EditableStudent } from './EditDetails';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,16 +29,6 @@ interface Enrolment {
   enrolledOn: unknown;
 }
 
-interface Guardian {
-  id: string;
-  guardianPersonId: string;
-  relationship: string;
-  isBillingGuardian: boolean;
-  isPrimaryContact: boolean;
-  canReceiveResults: boolean;
-  canCollectStudent: boolean;
-}
-
 interface HistoryEntry {
   fromStatus: string | null;
   toStatus: string;
@@ -45,15 +37,13 @@ interface HistoryEntry {
 }
 
 interface StudentView {
-  student: {
+  student: EditableStudent & {
     id: string;
     studentCode: string;
-    nameBn: string;
-    nameEn: string;
     status: string;
   };
   enrolments: Enrolment[];
-  guardians: Guardian[];
+  guardians: GuardianRow[];
   history: HistoryEntry[];
 }
 
@@ -109,38 +99,21 @@ export default async function StudentPage({
       {/* Actions are permission-gated in the UI AND on the server. The server
           is what enforces it; hiding the button is what stops somebody filling
           in a form they were never allowed to submit. */}
-      {can(ctx.value, 'student.transition') && student.status !== 'withdrawn' && (
-        <div className="mb-8">
+      <div className="mb-8 flex flex-wrap gap-3">
+        {can(ctx.value, 'student.write') && (
+          <EditDetails studentId={student.id} student={student} />
+        )}
+        {can(ctx.value, 'student.transition') && student.status !== 'withdrawn' && (
           <WithdrawButton studentId={student.id} redirectTo={`${base}/dashboard`} />
-        </div>
-      )}
+        )}
+      </div>
 
       <Section title="Guardians" count={guardians.length}>
-        {guardians.length === 0 ? (
-          <Empty>
-            No guardian is linked. This student cannot be contacted about
-            absence or results.
-          </Empty>
-        ) : (
-          <ul className="divide-y divide-[var(--color-border)]">
-            {guardians.map((g) => (
-              <li key={g.id} className="flex flex-wrap items-center gap-2 py-3">
-                <span className="capitalize">{g.relationship}</span>
-                <span className="font-mono text-xs text-[var(--color-text-muted)]">
-                  {g.guardianPersonId}
-                </span>
-                <span className="ml-auto flex gap-1">
-                  {/* Two separate flags, shown separately. Separated parents:
-                      one may pay while the other is contacted. */}
-                  {g.isBillingGuardian && <Tag>bills</Tag>}
-                  {g.isPrimaryContact && <Tag>contacted</Tag>}
-                  {!g.canReceiveResults && <Tag muted>no results</Tag>}
-                  {!g.canCollectStudent && <Tag muted>cannot collect</Tag>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <Guardians
+          studentId={student.id}
+          guardians={guardians}
+          canWrite={can(ctx.value, 'guardian.write')}
+        />
       </Section>
 
       <Section title="Enrolments" count={enrolments.length}>
@@ -208,26 +181,6 @@ function Section({
 
 function Empty({ children }: { children: React.ReactNode }): React.JSX.Element {
   return <p className="py-6 text-sm text-[var(--color-text-muted)]">{children}</p>;
-}
-
-function Tag({
-  children,
-  muted,
-}: {
-  children: React.ReactNode;
-  muted?: boolean;
-}): React.JSX.Element {
-  return (
-    <span
-      className={`rounded px-2 py-0.5 text-xs ${
-        muted
-          ? 'text-[var(--color-text-muted)] border border-[var(--color-border)]'
-          : 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)]'
-      }`}
-    >
-      {children}
-    </span>
-  );
 }
 
 function StatusBadge({ status }: { status: string }): React.JSX.Element {
