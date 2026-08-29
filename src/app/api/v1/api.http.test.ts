@@ -575,10 +575,17 @@ describe('the login page', () => {
 
   it('ships the fields a phone needs to autofill an SMS code', async () => {
     const { html } = await page('/app/login');
-    // `autocomplete="tel"` and the one-time-code field are what let a handset
-    // offer the number and the code from the keyboard.
-    expect(html).toContain('autocomplete="tel"');
-    expect(html).toContain('inputmode="tel"');
+    /*
+     * Case-INSENSITIVE. React 19 emits `autoComplete` and `inputMode` in
+     * camelCase in its server output rather than lowercasing them; HTML
+     * attribute names are case-insensitive so browsers do not care, and
+     * asserting on exact case would be testing React's serialiser instead of
+     * the behaviour that matters — a handset offering the number and the SMS
+     * code from the keyboard.
+     */
+    expect(html).toMatch(/autocomplete="tel"/i);
+    expect(html).toMatch(/inputmode="tel"/i);
+    expect(html).toMatch(/type="tel"/i);
   }, 60_000);
 
   it('sets lang from the locale, which a screen reader switches voice on', async () => {
