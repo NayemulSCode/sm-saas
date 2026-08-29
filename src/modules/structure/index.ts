@@ -48,3 +48,13 @@ export {
   SEQUENCE_STEP,
   type ExistingLevel,
 } from './domain/classLevel';
+
+export {
+  OpenAcademicYearSchema,
+  CloseAcademicYearSchema,
+  CreateClassLevelSchema,
+  ReorderClassLevelsSchema,
+  CreateShiftSchema,
+  CreateSectionSchema,
+  UpdateSectionSchema,
+} from './application/dto';

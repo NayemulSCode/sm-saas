@@ -73,3 +73,22 @@ export const RevokeInviteSchema = z.object({
   reason: z.string().min(3).max(280),
 });
 export type RevokeInviteDto = z.infer<typeof RevokeInviteSchema>;
+
+export const GrantRoleSchema = z.object({
+  roleId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'),
+  /**
+   * `{}` — unrestricted within the tenant. An absent axis is unrestricted; a
+   * present but empty one denies everything, so a misconfigured role fails
+   * closed (§9.3).
+   */
+  scope: z
+    .record(z.string(), z.array(z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)))
+    .optional(),
+  // Access changes are never routine.
+  reason: z.string().trim().min(3).max(280),
+});
+
+export const RevokeRoleSchema = z.object({
+  roleId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'common.error.invalidId'),
+  reason: z.string().trim().min(3).max(280),
+});
