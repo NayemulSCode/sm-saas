@@ -19,6 +19,7 @@ in that ADR.
 
 | Need | Read |
 |---|---|
+| **Running and verifying it on one machine** | [`docs/RUNNING-LOCALLY.md`](docs/RUNNING-LOCALLY.md) |
 | Every settled decision, in one page | [`docs/architecture/phase-1c/46-decision-summary.md`](docs/architecture/phase-1c/46-decision-summary.md) |
 | The whole design | [`docs/architecture/README.md`](docs/architecture/README.md) |
 | **What Phase 3a is built from** | [`docs/engineering/README.md`](docs/engineering/README.md) |

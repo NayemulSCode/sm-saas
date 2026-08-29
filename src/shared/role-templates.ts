@@ -234,3 +234,62 @@ export function moduleOf(): Map<Permission, string> {
   }
   return map;
 }
+
+/**
+ * Subscription plans. §7.3 tier 1.
+ *
+ * PRICES ARE PROVISIONAL. §42 assumes an ARPU of ৳6,000 (~US$50) per school
+ * per month, and [OQ-2](../../docs/EXTERNAL-ACTIONS.md) — "validate ARPU with
+ * five pricing conversations" — is still open. The three-tier split below is a
+ * placeholder that lets a tenant be provisioned; it is not a commercial
+ * decision and must not be quoted to a school.
+ *
+ * Money is bigint minor units (poisha). Never a float, never `numeric` at the
+ * language boundary.
+ */
+export interface PlanSeed {
+  code: string;
+  nameBn: string;
+  nameEn: string;
+  /** Poisha per month. ৳6,000 = 600_000. */
+  priceMinor: bigint;
+  features: ReadonlyArray<{ key: string; limit?: number | undefined }>;
+}
+
+export const PLANS: readonly PlanSeed[] = [
+  {
+    code: 'starter',
+    nameBn: 'প্রারম্ভিক',
+    nameEn: 'Starter',
+    priceMinor: 300_000n,
+    features: [
+      { key: 'students', limit: 300 },
+      { key: 'campuses', limit: 1 },
+      { key: 'sms', limit: 1_000 },
+    ],
+  },
+  {
+    code: 'standard',
+    nameBn: 'সাধারণ',
+    nameEn: 'Standard',
+    // The §42 ARPU figure. Provisional until OQ-2 comes back.
+    priceMinor: 600_000n,
+    features: [
+      { key: 'students', limit: 1_500 },
+      { key: 'campuses', limit: 1 },
+      { key: 'sms', limit: 5_000 },
+    ],
+  },
+  {
+    code: 'multi-campus',
+    nameBn: 'বহু-ক্যাম্পাস',
+    nameEn: 'Multi-campus',
+    priceMinor: 1_200_000n,
+    features: [
+      // NULL limit = unlimited.
+      { key: 'students' },
+      { key: 'campuses' },
+      { key: 'sms', limit: 20_000 },
+    ],
+  },
+];
