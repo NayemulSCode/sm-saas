@@ -35,6 +35,7 @@ export default tseslint.config(
       'boundaries/include': ['src/**/*'],
       'boundaries/elements': [
         { type: 'shared', pattern: 'src/shared/**' },
+        { type: 'ui', pattern: 'src/components/**' },
         { type: 'config', pattern: 'src/config/**' },
         { type: 'db', pattern: 'src/db/**' },
         { type: 'domain', pattern: 'src/modules/*/domain/**' },
@@ -56,7 +57,12 @@ export default tseslint.config(
             policy('app-layer', ['shared', 'domain', 'module-api', 'config']),
             policy('infra', ['shared', 'domain', 'db', 'config']),
             policy('module-api', ['shared', 'domain', 'app-layer', 'infra']),
-            policy('transport', ['shared', 'module-api', 'config']),
+            policy('transport', ['shared', 'module-api', 'config', 'ui']),
+            // The component library: primitives compose into patterns, both
+            // may reach the shared kernel (Money, LocalDate, ids) for typed
+            // props — neither may reach a module, the db, or domain logic.
+            // A component that needs a use case takes it as a prop instead.
+            policy('ui', ['shared', 'ui']),
             policy('shared', ['shared']),
             policy('db', ['shared', 'config', 'db']),
             policy('config', ['shared']),

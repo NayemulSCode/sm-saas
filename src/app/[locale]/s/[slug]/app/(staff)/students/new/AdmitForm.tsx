@@ -13,6 +13,8 @@
  */
 
 import { useState, type FormEvent } from 'react';
+import { Button, Label, Select } from '../../../../../../../../components/ui';
+import { FormField, SectionPicker } from '../../../../../../../../components/patterns';
 
 export interface SectionOption {
   id: string;
@@ -45,7 +47,7 @@ export function AdmitForm({
 
   if (!academicYearId) {
     return (
-      <p className="rounded border border-[var(--color-danger)] p-4 text-sm">
+      <p className="rounded-[var(--radius-md)] border border-[var(--color-danger)] p-4 text-sm">
         This school has no current academic year, so nobody can be enrolled.
         Open one first.
       </p>
@@ -54,7 +56,7 @@ export function AdmitForm({
 
   if (sections.length === 0) {
     return (
-      <p className="rounded border border-[var(--color-border)] p-4 text-sm">
+      <p className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-4 text-sm">
         There are no sections yet. A student has to be enrolled into one, so
         create a section before admitting anybody.
       </p>
@@ -114,20 +116,20 @@ export function AdmitForm({
       {error && (
         <p
           role="alert"
-          className="rounded border border-[var(--color-danger)] px-3 py-2 text-sm text-[var(--color-danger)]"
+          className="rounded-[var(--radius-md)] border border-[var(--color-danger)] px-3 py-2 text-sm text-[var(--color-danger)]"
         >
           {error}
         </p>
       )}
 
-      <Field
+      <FormField
         name="nameBn"
         label="Name (Bangla)"
         hint="Printed on the report card. Required."
         error={fields['nameBn']}
         required
       />
-      <Field
+      <FormField
         name="nameEn"
         label="Name (English)"
         hint="Used on the board registration list. Required, and not a translation of the above."
@@ -136,32 +138,19 @@ export function AdmitForm({
       />
 
       <div>
-        <label htmlFor="sectionId" className="block text-sm font-medium">
-          Section
-        </label>
-        <select
-          id="sectionId"
-          name="sectionId"
-          required
-          className="mt-2 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-base"
-        >
-          {sections.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <Label htmlFor="sectionId">Section</Label>
+        <SectionPicker sections={sections} required className="mt-2" />
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field
+        <FormField
           name="rollNo"
           label="Roll number"
           hint="Optional. Reassigned at every promotion."
           type="number"
           error={fields['rollNo']}
         />
-        <Field
+        <FormField
           name="dateOfBirth"
           label="Date of birth"
           type="date"
@@ -171,22 +160,15 @@ export function AdmitForm({
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
-          <label htmlFor="gender" className="block text-sm font-medium">
-            Gender
-          </label>
-          <select
-            id="gender"
-            name="gender"
-            defaultValue=""
-            className="mt-2 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-base"
-          >
+          <Label htmlFor="gender">Gender</Label>
+          <Select id="gender" name="gender" defaultValue="" className="mt-2">
             <option value="">Not recorded</option>
             <option value="female">Female</option>
             <option value="male">Male</option>
             <option value="other">Other</option>
-          </select>
+          </Select>
         </div>
-        <Field
+        <FormField
           name="phone"
           label="Contact number"
           hint="+8801XXXXXXXXX. A contact detail, not a login."
@@ -195,54 +177,9 @@ export function AdmitForm({
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={busy}
-        className="min-h-11 w-full rounded bg-[var(--brand-primary)] px-4 font-medium text-[var(--brand-on-primary)] disabled:opacity-60 sm:w-auto"
-      >
+      <Button type="submit" disabled={busy} size="lg" className="w-full sm:w-auto">
         {busy ? 'Admitting…' : 'Admit student'}
-      </button>
+      </Button>
     </form>
-  );
-}
-
-function Field({
-  name,
-  label,
-  hint,
-  error,
-  type = 'text',
-  required,
-}: {
-  name: string;
-  label: string;
-  hint?: string;
-  error?: string | undefined;
-  type?: string;
-  required?: boolean;
-}): React.JSX.Element {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium">
-        {label}
-      </label>
-      {hint && (
-        <p id={`${name}-hint`} className="mt-1 text-sm text-[var(--color-text-muted)]">
-          {hint}
-        </p>
-      )}
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        aria-describedby={hint ? `${name}-hint` : undefined}
-        aria-invalid={error ? true : undefined}
-        className={`mt-2 w-full rounded border bg-[var(--color-surface-raised)] px-3 py-2 text-base ${
-          error ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'
-        }`}
-      />
-      {error && <p className="mt-1 text-sm text-[var(--color-danger)]">{error}</p>}
-    </div>
   );
 }

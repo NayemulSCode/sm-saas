@@ -26,20 +26,58 @@
   --gray-900: #18181b;
   --red-600: #dc2626;
   --green-700: #15803d;
+  --amber-600: #d97706;
 
   /* semantic */
   --color-surface: var(--gray-50);
   --color-surface-raised: #ffffff;
+  --color-surface-sunken: var(--gray-100);
   --color-text: var(--gray-900);
   --color-text-muted: var(--gray-600);
   --color-border: var(--gray-200);
   --color-danger: var(--red-600);
   --color-success: var(--green-700);
+  --color-warning: var(--amber-600);
+
+  /*
+   * Interactive states, derived from the semantic tones rather than authored
+   * a second time — a mistake that can otherwise only be made once per token
+   * ends up made once per token PER THEME.
+   */
+  --color-surface-hover: color-mix(in srgb, var(--color-surface-raised) 94%, var(--color-text));
+  --color-surface-active: color-mix(in srgb, var(--color-surface-raised) 88%, var(--color-text));
 
   /* brand — overridden per tenant, server-side, in the tenant layout.
-     --brand-on-primary is COMPUTED, never authored (ADR-0023). */
-  --brand-primary: #1e40af;
+     --brand-*-on are COMPUTED, never authored (ADR-0023). Accent exists for
+     the same reason primary does: a single-hue product reads as a template. */
+  --brand-primary: #155e63;
   --brand-on-primary: #ffffff;
+  --brand-accent: #d97a3f;
+  --brand-on-accent: #1a1005;
+
+  /* Component-layer tones derived from brand, so a tenant colour change (or
+     the contrast guard, §23.4) never needs a second hover/active table. */
+  --brand-primary-hover: color-mix(in srgb, var(--brand-primary) 88%, black);
+  --brand-primary-active: color-mix(in srgb, var(--brand-primary) 78%, black);
+  --brand-accent-hover: color-mix(in srgb, var(--brand-accent) 88%, black);
+
+  /* One focus ring, everywhere. A component that rolls its own is the one
+     that gets forgotten when a WCAG audit asks for 3:1 non-text contrast. */
+  --focus-ring: var(--brand-primary);
+  --focus-ring-offset: var(--color-surface);
+
+  /* A radius scale with enough range to read as designed rather than
+     defaulted: tight on controls people click a hundred times a day, roomier
+     on the surfaces that contain them. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+
+  /* Shadows are a light source, not a border-in-disguise — kept subtle enough
+     to survive a school choosing a saturated brand colour next to them. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 1px 0 rgb(0 0 0 / 0.03);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.16), 0 4px 8px -4px rgb(0 0 0 / 0.06);
 
   /* Bangla ascends ~23% higher than Latin at the same size, and a line with an
      upper mark plus a deep stack needs 1.13em of ink. line-height 1.0 clips.
@@ -53,18 +91,30 @@
   @media (prefers-color-scheme: dark) {
     --color-surface: #09090b;
     --color-surface-raised: #18181b;
+    --color-surface-sunken: #000000;
     --color-text: #fafafa;
     --color-text-muted: #a1a1aa;
     --color-border: #27272a;
+    --color-surface-hover: color-mix(in srgb, var(--color-surface-raised) 88%, white);
+    --color-surface-active: color-mix(in srgb, var(--color-surface-raised) 78%, white);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.6);
   }
 }
 
 :root[data-theme='dark'] {
   --color-surface: #09090b;
   --color-surface-raised: #18181b;
+  --color-surface-sunken: #000000;
   --color-text: #fafafa;
   --color-text-muted: #a1a1aa;
   --color-border: #27272a;
+  --color-surface-hover: color-mix(in srgb, var(--color-surface-raised) 88%, white);
+  --color-surface-active: color-mix(in srgb, var(--color-surface-raised) 78%, white);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.6);
 }
 
 html {
@@ -77,6 +127,13 @@ body {
   font-family: var(--font-sans);
   line-height: var(--leading-bangla);
   -webkit-font-smoothing: antialiased;
+}
+
+/* A visible, consistent focus indicator — WCAG 2.2 §2.4.11/§2.4.13. Every
+   interactive primitive relies on this rather than re-declaring its own. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Documents always render light-themed: a dark-mode report card wastes toner
