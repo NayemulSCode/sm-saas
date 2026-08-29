@@ -993,3 +993,136 @@ describe('the admit form page', () => {
     expect(html).toMatch(/Class \d+ — [A-Z]/);
   }, 60_000);
 });
+
+describe('staff and roles', () => {
+  let otherMembershipId: string;
+  let accountantRoleId: string;
+
+  it('lists the members of this school, marking the caller', async () => {
+    const res = await get('/api/v1/members');
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+
+    const members = data<
+      Array<{ membershipId: string; isSelf: boolean; roles: Array<{ code: string }> }>
+    >(res.json);
+    expect(members.length).toBeGreaterThan(0);
+
+    const me = members.find((m) => m.isSelf);
+    expect(me, 'the caller must appear in their own school').toBeDefined();
+    expect(me!.roles.map((r) => r.code)).toContain('Principal');
+  }, 30_000);
+
+  it('invites somebody who is not on file yet, in one call', async () => {
+    const res = await post('/api/v1/staff/invites', {
+      person: { nameBn: 'নতুন শিক্ষক', nameEn: 'New Teacher' },
+      identifier: `teacher-${STAMP}@api.example.bd`,
+    });
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+
+    const body = data<{ membershipId: string; inviteToken: string }>(res.json);
+    otherMembershipId = body.membershipId;
+    // Returned once and never stored in plaintext; only its hash reaches the
+    // database.
+    expect(body.inviteToken).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+  }, 60_000);
+
+  it('shows the new member with an invite still pending', async () => {
+    const res = await get('/api/v1/members');
+    const member = data<Array<{ membershipId: string; invitePending: boolean; nameBn: string }>>(
+      res.json,
+    ).find((m) => m.membershipId === otherMembershipId);
+
+    expect(member).toBeDefined();
+    expect(member!.nameBn).toBe('নতুন শিক্ষক');
+    // Their membership exists the moment the invite is issued; hiding them
+    // until they accept means inviting the same teacher twice.
+    expect(member!.invitePending).toBe(true);
+  }, 30_000);
+
+  it('refuses an invite naming both a person and an id', async () => {
+    const members = data<Array<{ personId: string }>>((await get('/api/v1/members')).json);
+    const res = await post('/api/v1/staff/invites', {
+      personId: members[0]!.personId,
+      person: { nameBn: 'ক', nameEn: 'K' },
+      identifier: `both-${STAMP}@api.example.bd`,
+    });
+    expect(res.status).toBe(400);
+  }, 30_000);
+
+  it('grants a role, which the member list then shows', async () => {
+    const roles = data<Array<{ id: string; code: string }>>((await get('/api/v1/roles')).json);
+    accountantRoleId = roles.find((r) => r.code === 'Accountant')!.id;
+
+    const granted = await post(`/api/v1/memberships/${otherMembershipId}/roles`, {
+      roleId: accountantRoleId,
+      reason: 'handles the fee ledger',
+    });
+    expect(granted.status, JSON.stringify(granted.json)).toBe(201);
+
+    const after = data<Array<{ membershipId: string; roles: Array<{ code: string }> }>>(
+      (await get('/api/v1/members')).json,
+    ).find((m) => m.membershipId === otherMembershipId);
+    expect(after!.roles.map((r) => r.code)).toContain('Accountant');
+  }, 60_000);
+
+  it('revokes it again', async () => {
+    const res = await post(`/api/v1/memberships/${otherMembershipId}/roles/revoke`, {
+      roleId: accountantRoleId,
+      reason: 'moved to a different post',
+    });
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+
+    const after = data<Array<{ membershipId: string; roles: Array<{ code: string }> }>>(
+      (await get('/api/v1/members')).json,
+    ).find((m) => m.membershipId === otherMembershipId);
+    expect(after!.roles).toHaveLength(0);
+  }, 60_000);
+});
+
+describe('the structure and staff pages', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+
+  const page = (path: string): Promise<{ status: number; html: string }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost, cookie } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (c: string) => (body += c));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, html: body }));
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('renders the structure page with the school shape', async () => {
+    const { status, html } = await page('/app/structure');
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain('Academic years');
+    expect(html).toContain('Classes');
+    expect(html).toContain('Sections');
+    expect(html).toContain('Add a class');
+    // Promotion order is what the sequence column means, and the page says so.
+    expect(html).toMatch(/promotion order/i);
+  }, 60_000);
+
+  it('renders the staff page and marks the caller', async () => {
+    const { status, html } = await page('/app/staff');
+    expect(status, html.slice(0, 300)).toBe(200);
+
+    expect(html).toContain('Staff');
+    expect(html).toContain('Invite a member of staff');
+    // Nobody edits their own access — the row says so rather than offering
+    // controls the server would refuse.
+    expect(html).toContain('This is you');
+  }, 60_000);
+
+  it('links both screens from the dashboard', async () => {
+    const { html } = await page('/app/dashboard');
+    expect(html).toContain('/app/structure');
+    expect(html).toContain('/app/staff');
+  }, 60_000);
+});

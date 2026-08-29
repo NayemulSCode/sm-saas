@@ -65,6 +65,17 @@ export default async function DashboardPage({
 
   return (
     <main className="mx-auto max-w-4xl p-6">
+      {/* Plain links, so the whole app works without JavaScript and every
+          screen is a URL somebody can bookmark or send to a colleague. */}
+      <nav className="mb-6 flex gap-4 text-sm">
+        <Link href={`${base}/structure`} className="underline">
+          Structure
+        </Link>
+        <Link href={`${base}/staff`} className="underline">
+          Staff
+        </Link>
+      </nav>
+
       <header className="mb-6">
         <h1 className="text-xl font-semibold">{school?.nameBn ?? 'School'}</h1>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
