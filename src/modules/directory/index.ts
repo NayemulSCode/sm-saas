@@ -75,3 +75,16 @@ export {
   renderCode,
   sequenceOf,
 } from './domain/studentCode';
+
+export {
+  AdmitStudentSchema,
+  TransitionStudentSchema,
+  WithdrawStudentSchema,
+  LinkGuardianSchema,
+  UnlinkGuardianSchema,
+  LinkSiblingsSchema,
+  PromoteSectionSchema,
+  UndoPromotionSchema,
+  MergePersonsSchema,
+  UnmergePersonsSchema,
+} from './application/dto';

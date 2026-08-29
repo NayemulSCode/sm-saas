@@ -115,3 +115,4 @@ export {
   type GrantRoleInput,
 } from './application/grantRole';
 export { evaluateGrant, type GrantVerdict } from './domain/grant';
+export { GrantRoleSchema, RevokeRoleSchema } from './application/dto';
