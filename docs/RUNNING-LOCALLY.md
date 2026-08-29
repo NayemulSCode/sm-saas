@@ -325,6 +325,23 @@ Being clear about this so you do not go looking:
 - **No worker.** `src/worker/index.ts` is a 51-line stub; the pg-boss consumers
   are commented out until the modules that need them exist.
 
+## 8a. The API
+
+[`docs/API.md`](API.md) lists every endpoint with its permission and — more
+usefully — **every `code` it can refuse with, and when**. A client branches on
+`code`, so an undocumented one is an unhandled case in somebody's UI.
+
+[`docs/openapi.json`](openapi.json) is the same thing as OpenAPI 3.1. Import it
+into Postman or Insomnia:
+
+```bash
+pnpm docs:api
+```
+
+Both are generated from the Zod schemas the handlers validate with, so they
+cannot describe a field the server rejects. CI fails if they go stale, if a
+route has no entry, or if an entry has no route.
+
 ## 8b. Two Windows gotchas
 
 **`curl` on Git Bash mangles Bangla.** Non-ASCII in a `-d` argument arrives at

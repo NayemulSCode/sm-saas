@@ -17,6 +17,22 @@ jobs:
       - name: Check links, ADR index and secret leakage
         run: bash ./scripts/check-docs.sh
 
+      # The API check needs Node; the link check above does not, which is why
+      # this job had no toolchain until now.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Hand-written API documentation drifts within a month; generated
+      # documentation drifts the moment somebody stops regenerating it. This
+      # fails on a stale file, on a route with no registry entry, and on a
+      # documented endpoint no route exports.
+      - name: API documentation is current
+        run: pnpm docs:api --check
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
