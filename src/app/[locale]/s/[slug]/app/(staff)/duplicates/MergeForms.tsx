@@ -12,6 +12,8 @@
  */
 
 import { useState, type FormEvent } from 'react';
+import { Badge, Button, Card, CardContent, Input } from '../../../../../../../components/ui';
+import { ApiErrorAlert, EmptyState, type ApiError } from '../../../../../../../components/patterns';
 
 export type Evidence = 'birth_reg_no' | 'name_and_dob' | 'name_and_phone';
 
@@ -57,12 +59,6 @@ const EVIDENCE: Record<Evidence, string> = {
   name_and_phone: 'Same name and phone number',
 };
 
-interface ApiError {
-  code: string;
-  message: string;
-  requestId: string;
-}
-
 /** Branch on `code`; the message is localised and never parsed. */
 const MESSAGES: Record<string, string> = {
   SAME_PERSON: 'Those are the same record.',
@@ -101,17 +97,11 @@ async function send(
 
 function Problem({ error }: { error: ApiError }): React.JSX.Element {
   return (
-    <p
-      role="alert"
-      className="mt-3 rounded border border-[var(--color-danger)] px-3 py-2 text-sm text-[var(--color-danger)]"
-    >
-      {MESSAGES[error.code] ?? error.message}
-      {error.requestId && (
-        <span className="mt-1 block text-xs text-[var(--color-text-muted)]">
-          Reference: {error.requestId}
-        </span>
-      )}
-    </p>
+    <ApiErrorAlert
+      text={MESSAGES[error.code] ?? error.message}
+      requestId={error.requestId}
+      className="mt-3"
+    />
   );
 }
 
@@ -147,11 +137,7 @@ export function DuplicateQueue({ pairs }: { pairs: Pair[] }): React.JSX.Element 
   if (pairs.length === 0) {
     return (
       <section className="mb-10">
-        <p className="rounded border border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-text-muted)]">
-          No possible duplicates found. Records are compared on birth
-          registration number, and on name together with date of birth or phone
-          number.
-        </p>
+        <EmptyState title="No possible duplicates found." description="Records are compared on birth registration number, and on name together with date of birth or phone number." />
       </section>
     );
   }
@@ -196,151 +182,134 @@ function PairCard({ pair }: { pair: Pair }): React.JSX.Element {
 
   if (done) {
     return (
-      <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
-        <p className="font-medium">Merged</p>
-        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          {loser && describe(loser)} was merged into {winner && describe(winner)}.
-          It is listed below and can be put back.
-        </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-3 min-h-11 rounded border border-[var(--color-border)] px-4"
-        >
-          Done
-        </button>
-      </div>
+      <Card>
+        <CardContent className="pt-5">
+          <p className="font-medium text-[var(--color-text)]">Merged</p>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+            {loser && describe(loser)} was merged into {winner && describe(winner)}.
+            It is listed below and can be put back.
+          </p>
+          <Button variant="secondary" onClick={() => window.location.reload()} className="mt-3">
+            Done
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
-      <p className="text-sm text-[var(--color-text-muted)]">{EVIDENCE[pair.evidence]}</p>
+    <Card>
+      <CardContent className="pt-5">
+        <p className="text-sm text-[var(--color-text-muted)]">{EVIDENCE[pair.evidence]}</p>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {(['left', 'right'] as const).map((which) => {
-          const s = pair[which];
-          const chosen = keep === which;
-          return (
-            <label
-              key={which}
-              className={`block cursor-pointer rounded border p-3 ${
-                chosen
-                  ? 'border-[var(--brand-primary)]'
-                  : 'border-[var(--color-border)]'
-              }`}
-            >
-              <span className="flex items-baseline gap-2">
-                <input
-                  type="radio"
-                  name={`keep-${pair.left.personId}`}
-                  checked={chosen}
-                  onChange={() => setKeep(which)}
-                  className="mt-1"
-                />
-                <span className="font-medium">{s.nameBn}</span>
-                {pair.suggestedWinner === which && (
-                  <span className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]">
-                    suggested
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {(['left', 'right'] as const).map((which) => {
+            const s = pair[which];
+            const chosen = keep === which;
+            return (
+              <label
+                key={which}
+                className={`block cursor-pointer rounded-[var(--radius-md)] border p-3 ${
+                  chosen ? 'border-[var(--brand-primary)]' : 'border-[var(--color-border)]'
+                }`}
+              >
+                <span className="flex items-baseline gap-2">
+                  <input
+                    type="radio"
+                    name={`keep-${pair.left.personId}`}
+                    checked={chosen}
+                    onChange={() => setKeep(which)}
+                    className="mt-1 accent-[var(--brand-primary)]"
+                  />
+                  <span className="font-medium text-[var(--color-text)]">{s.nameBn}</span>
+                  {pair.suggestedWinner === which && <Badge tone="neutral">suggested</Badge>}
+                </span>
+                <span className="mt-1 block text-sm text-[var(--color-text-muted)]">{s.nameEn}</span>
+                {s.phone && (
+                  <span className="block text-sm text-[var(--color-text-muted)]">{s.phone}</span>
+                )}
+                {/* What this record carries, so the cost of choosing wrongly is
+                    visible before the choice rather than after it. */}
+                <span className="mt-2 block text-sm text-[var(--color-text)]">{attachments(s)}</span>
+                {/* And WHO, because both names are identical by construction —
+                    the children are the only thing that distinguishes the two. */}
+                {s.attachedTo.length > 0 && (
+                  <span className="mt-1 block text-sm text-[var(--color-text-muted)]">
+                    {s.attachedTo.join(', ')}
                   </span>
                 )}
-              </span>
-              <span className="mt-1 block text-sm text-[var(--color-text-muted)]">{s.nameEn}</span>
-              {s.phone && (
-                <span className="block text-sm text-[var(--color-text-muted)]">{s.phone}</span>
-              )}
-              {/* What this record carries, so the cost of choosing wrongly is
-                  visible before the choice rather than after it. */}
-              <span className="mt-2 block text-sm">{attachments(s)}</span>
-              {/* And WHO, because both names are identical by construction —
-                  the children are the only thing that distinguishes the two. */}
-              {s.attachedTo.length > 0 && (
-                <span className="mt-1 block text-sm text-[var(--color-text-muted)]">
-                  {s.attachedTo.join(', ')}
+                <span className="mt-1 block text-xs text-[var(--color-text-muted)]">
+                  added {new Date(s.at).toLocaleDateString()}
                 </span>
-              )}
-              <span className="mt-1 block text-xs text-[var(--color-text-muted)]">
-                added {new Date(s.at).toLocaleDateString()}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-
-      {confirming && winner && loser ? (
-        <div className="mt-4 rounded border border-[var(--color-danger)] p-3">
-          {/*
-            * Named by what is ATTACHED, not by the person's name. A proposed
-            * pair has identical names by construction, so "X moves to X" is the
-            * one sentence a confirmation step must never be — it asks the
-            * reviewer to check a direction it has not shown them.
-            */}
-          <p className="text-sm">
-            Everything attached to the record for{' '}
-            <strong>{describe(loser)}</strong> moves to the record for{' '}
-            <strong>{describe(winner)}</strong>. The losing record is kept and
-            marked as merged — nothing is deleted, and this can be put back.
-          </p>
-          {error && <Problem error={error} />}
-          <div className="mt-3 flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void merge()}
-              className="min-h-11 rounded bg-[var(--color-danger)] px-4 font-medium text-[var(--brand-on-primary)] disabled:opacity-60"
-            >
-              {busy ? 'Merging…' : `Merge into ${winner.nameEn}`}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setConfirming(false)}
-              className="min-h-11 rounded border border-[var(--color-border)] px-4"
-            >
-              Back
-            </button>
-          </div>
+              </label>
+            );
+          })}
         </div>
-      ) : (
-        <form
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            setConfirming(true);
-          }}
-          className="mt-4 flex flex-wrap items-center gap-3"
-        >
-          <label htmlFor={`reason-${pair.left.personId}`} className="sr-only">
-            Why these are the same person
-          </label>
-          <input
-            id={`reason-${pair.left.personId}`}
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            required
-            minLength={3}
-            placeholder="Why these are the same person"
-            className="min-h-11 flex-1 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-base"
-          />
-          <button
-            type="submit"
-            // Disabled until somebody has actually chosen a side. There is no
-            // pre-selected winner, however confident the suggestion is.
-            disabled={keep === null || reason.trim().length < 3}
-            className="min-h-11 rounded bg-[var(--brand-primary)] px-4 font-medium text-[var(--brand-on-primary)] disabled:opacity-60"
-          >
-            Review merge
-          </button>
-          {keep === null && (
-            <p className="w-full text-sm text-[var(--color-text-muted)]">
-              Choose which record to keep.
-            </p>
-          )}
-        </form>
-      )}
 
-      {error && !confirming && <Problem error={error} />}
-    </div>
+        {confirming && winner && loser ? (
+          <div className="mt-4 rounded-[var(--radius-md)] border border-[var(--color-danger)] p-3">
+            {/*
+              * Named by what is ATTACHED, not by the person's name. A proposed
+              * pair has identical names by construction, so "X moves to X" is the
+              * one sentence a confirmation step must never be — it asks the
+              * reviewer to check a direction it has not shown them.
+              */}
+            <p className="text-sm text-[var(--color-text)]">
+              Everything attached to the record for{' '}
+              <strong>{describe(loser)}</strong> moves to the record for{' '}
+              <strong>{describe(winner)}</strong>. The losing record is kept and
+              marked as merged — nothing is deleted, and this can be put back.
+            </p>
+            {error && <Problem error={error} />}
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Button variant="destructive" disabled={busy} onClick={() => void merge()}>
+                {busy ? 'Merging…' : `Merge into ${winner.nameEn}`}
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={() => setConfirming(false)}>
+                Back
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={(e: FormEvent) => {
+              e.preventDefault();
+              setConfirming(true);
+            }}
+            className="mt-4 flex flex-wrap items-center gap-3"
+          >
+            <label htmlFor={`reason-${pair.left.personId}`} className="sr-only">
+              Why these are the same person
+            </label>
+            <Input
+              id={`reason-${pair.left.personId}`}
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              required
+              minLength={3}
+              placeholder="Why these are the same person"
+              className="flex-1"
+            />
+            <Button
+              type="submit"
+              // Disabled until somebody has actually chosen a side. There is no
+              // pre-selected winner, however confident the suggestion is.
+              disabled={keep === null || reason.trim().length < 3}
+            >
+              Review merge
+            </Button>
+            {keep === null && (
+              <p className="w-full text-sm text-[var(--color-text-muted)]">
+                Choose which record to keep.
+              </p>
+            )}
+          </form>
+        )}
+
+        {error && !confirming && <Problem error={error} />}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -385,7 +354,7 @@ export function RecentMerges({ merges }: { merges: Merge[] }): React.JSX.Element
 
   return (
     <section>
-      <h2 className="mb-3 font-medium">Merges already made</h2>
+      <h2 className="mb-3 font-medium text-[var(--color-text)]">Merges already made</h2>
 
       {error && <Problem error={error} />}
 
@@ -394,11 +363,11 @@ export function RecentMerges({ merges }: { merges: Merge[] }): React.JSX.Element
           No records have been merged at this school yet.
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--color-border)] rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+        <ul className="divide-y divide-[var(--color-border)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-sm)]">
           {merges.map((m) => (
             <li key={m.id} className="flex flex-wrap items-baseline justify-between gap-3 p-4">
               <div>
-                <p className="font-medium">
+                <p className="font-medium text-[var(--color-text)]">
                   {m.loserNameBn ?? 'a removed record'}
                   <span className="font-normal text-[var(--color-text-muted)]"> → </span>
                   {m.winnerNameBn ?? 'a removed record'}
@@ -416,16 +385,16 @@ export function RecentMerges({ merges }: { merges: Merge[] }): React.JSX.Element
               </div>
 
               {m.reversedAt === null ? (
-                <button
-                  type="button"
+                <Button
+                  variant="destructive"
+                  size="sm"
                   disabled={busy !== null}
                   onClick={() => void reverse(m)}
-                  className="min-h-11 rounded border border-[var(--color-danger)] px-4 text-[var(--color-danger)] disabled:opacity-60"
                 >
                   {busy === m.id ? 'Putting back…' : 'Put back'}
-                </button>
+                </Button>
               ) : (
-                <span className="text-sm text-[var(--color-text-muted)]">Reversed</span>
+                <Badge tone="neutral">Reversed</Badge>
               )}
             </li>
           ))}

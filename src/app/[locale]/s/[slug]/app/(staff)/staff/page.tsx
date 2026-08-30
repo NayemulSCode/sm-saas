@@ -18,6 +18,7 @@ import { readSessionToken } from '../../../../../../api/_lib/session-cookie';
 import { can } from '../../../../../../../shared/auth-context';
 import { InviteStaff, MemberRoles, type RoleOption } from './StaffActions';
 import { appPath } from '../../../../../../../shared/paths';
+import { Badge, Card } from '../../../../../../../components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,53 +74,47 @@ export default async function StaffPage({
   return (
     <main className="mx-auto max-w-4xl p-6">
       <p className="mb-4 text-sm">
-        <Link href={`${base}/dashboard`} className="underline">
+        <Link href={`${base}/dashboard`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           ← Dashboard
         </Link>
       </p>
 
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-xl font-semibold">Staff</h1>
+        <h1 className="font-serif text-2xl text-[var(--color-text)]">Staff</h1>
         {canInvite && <InviteStaff />}
       </div>
 
-      <ul className="divide-y divide-[var(--color-border)] rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
-        {membersResult.value.map((m) => (
-          <li key={m.membershipId} className="p-4">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <p className="font-medium">{m.nameBn}</p>
-              <p className="text-sm text-[var(--color-text-muted)]">{m.nameEn}</p>
-              {m.identifier && (
-                <p className="text-sm text-[var(--color-text-muted)]">· {m.identifier}</p>
-              )}
-              {/* An invited person is already a member — their membership exists
-                  the moment the invite is issued — so hiding them until they
-                  accept means inviting the same teacher twice. */}
-              {m.invitePending && (
-                <span className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]">
-                  invite pending
-                </span>
-              )}
-              {m.status !== 'active' && (
-                <span className="rounded border border-[var(--color-danger)] px-2 py-0.5 text-xs text-[var(--color-danger)]">
-                  {m.status}
-                </span>
-              )}
-            </div>
+      <Card>
+        <ul className="divide-y divide-[var(--color-border)]">
+          {membersResult.value.map((m) => (
+            <li key={m.membershipId} className="p-4">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <p className="font-medium text-[var(--color-text)]">{m.nameBn}</p>
+                <p className="text-sm text-[var(--color-text-muted)]">{m.nameEn}</p>
+                {m.identifier && (
+                  <p className="text-sm text-[var(--color-text-muted)]">· {m.identifier}</p>
+                )}
+                {/* An invited person is already a member — their membership exists
+                    the moment the invite is issued — so hiding them until they
+                    accept means inviting the same teacher twice. */}
+                {m.invitePending && <Badge tone="neutral">invite pending</Badge>}
+                {m.status !== 'active' && <Badge tone="danger">{m.status}</Badge>}
+              </div>
 
-            <div className="mt-2">
-              <MemberRoles
-                membershipId={m.membershipId}
-                roles={m.roles}
-                allRoles={roles}
-                myPermissions={myPermissions}
-                isSelf={m.isSelf}
-                canManage={canManageRoles}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
+              <div className="mt-2">
+                <MemberRoles
+                  membershipId={m.membershipId}
+                  roles={m.roles}
+                  allRoles={roles}
+                  myPermissions={myPermissions}
+                  isSelf={m.isSelf}
+                  canManage={canManageRoles}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       {canManageRoles && (
         <p className="mt-6 text-sm text-[var(--color-text-muted)]">

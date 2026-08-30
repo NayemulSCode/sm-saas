@@ -10,6 +10,8 @@
  */
 
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { Button, Card, CardContent, Checkbox, Label, Select as UiSelect } from '../../../../../../../components/ui';
+import { FormField, ConfirmDialog } from '../../../../../../../components/patterns';
 
 export interface Option {
   id: string;
@@ -93,76 +95,37 @@ function Panel({
 }): React.JSX.Element {
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="min-h-11 rounded border border-[var(--color-border)] px-4 text-sm"
-      >
+      <Button variant="secondary" onClick={onOpen}>
         {title}
-      </button>
+      </Button>
     );
   }
   return (
-    <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
-      <p className="font-medium">{title}</p>
-      {description && (
-        <p className="mt-1 mb-3 text-sm text-[var(--color-text-muted)]">{description}</p>
-      )}
-      {error && (
-        <p role="alert" className="mb-3 text-sm text-[var(--color-danger)]">
-          {error}
-        </p>
-      )}
-      {children}
-      <button type="button" onClick={onClose} className="mt-3 text-sm underline">
-        Cancel
-      </button>
-    </div>
-  );
-}
-
-function Text({
-  name,
-  label,
-  type = 'text',
-  required,
-  placeholder,
-  defaultValue,
-}: {
-  name: string;
-  label: string;
-  type?: string;
-  required?: boolean;
-  placeholder?: string;
-  defaultValue?: string;
-}): React.JSX.Element {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium">
-        {label}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        placeholder={placeholder}
-        defaultValue={defaultValue}
-        className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
-      />
-    </div>
+    <Card>
+      <CardContent className="pt-5">
+        <p className="font-medium text-[var(--color-text)]">{title}</p>
+        {description && (
+          <p className="mt-1 mb-3 text-sm text-[var(--color-text-muted)]">{description}</p>
+        )}
+        {error && (
+          <p role="alert" className="mb-3 text-sm text-[var(--color-danger)]">
+            {error}
+          </p>
+        )}
+        {children}
+        <Button type="button" variant="ghost" size="sm" onClick={onClose} className="mt-3">
+          Cancel
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
 function Submit({ busy, label }: { busy: boolean; label: string }): React.JSX.Element {
   return (
-    <button
-      type="submit"
-      disabled={busy}
-      className="min-h-11 rounded bg-[var(--brand-primary)] px-4 text-[var(--brand-on-primary)] disabled:opacity-60"
-    >
+    <Button type="submit" disabled={busy}>
       {busy ? 'Saving…' : label}
-    </button>
+    </Button>
   );
 }
 
@@ -203,11 +166,11 @@ export function AddClassLevel({ schoolId }: { schoolId: string }): React.JSX.Ele
         className="space-y-3"
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <Text name="nameBn" label="Name (Bangla)" required placeholder="একাদশ শ্রেণি" />
-          <Text name="nameEn" label="Name (English)" required placeholder="Class 11" />
+          <FormField name="nameBn" label="Name (Bangla)" required placeholder="একাদশ শ্রেণি" />
+          <FormField name="nameEn" label="Name (English)" required placeholder="Class 11" />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="loginEnabled" className="h-4 w-4" />
+          <Checkbox name="loginEnabled" />
           Students in this class can sign in
         </label>
         <p className="text-sm text-[var(--color-text-muted)]">
@@ -269,8 +232,8 @@ export function AddSection({
         className="space-y-3"
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <Select name="classLevelId" label="Class" options={classLevels} />
-          <Select
+          <PlainSelect name="classLevelId" label="Class" options={classLevels} />
+          <PlainSelect
             name="campusId"
             label="Campus"
             options={campuses}
@@ -279,17 +242,17 @@ export function AddSection({
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Select
+          <PlainSelect
             name="shiftId"
             label="Shift"
             options={shiftsHere}
             hint="Required — a section without a shift cannot be timetabled."
           />
-          <Text name="capacity" label="Capacity" type="number" placeholder="40" />
+          <FormField name="capacity" label="Capacity" type="number" placeholder="40" />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Text name="nameBn" label="Name (Bangla)" required placeholder="ক" />
-          <Text name="nameEn" label="Name (English)" required placeholder="A" />
+          <FormField name="nameBn" label="Name (Bangla)" required placeholder="ক" />
+          <FormField name="nameEn" label="Name (English)" required placeholder="A" />
         </div>
         <Submit busy={busy} label="Add section" />
       </form>
@@ -329,14 +292,14 @@ export function AddShift({ campuses }: { campuses: Option[] }): React.JSX.Elemen
         }}
         className="space-y-3"
       >
-        <Select name="campusId" label="Campus" options={campuses} />
+        <PlainSelect name="campusId" label="Campus" options={campuses} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Text name="nameBn" label="Name (Bangla)" required placeholder="প্রভাতী" />
-          <Text name="nameEn" label="Name (English)" required placeholder="Morning" />
+          <FormField name="nameBn" label="Name (Bangla)" required placeholder="প্রভাতী" />
+          <FormField name="nameEn" label="Name (English)" required placeholder="Morning" />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Text name="startTime" label="Starts" type="time" required defaultValue="07:00" />
-          <Text name="endTime" label="Ends" type="time" required defaultValue="11:30" />
+          <FormField name="startTime" label="Starts" type="time" required defaultValue="07:00" />
+          <FormField name="endTime" label="Ends" type="time" required defaultValue="11:30" />
         </div>
         <Submit busy={busy} label="Add shift" />
       </form>
@@ -378,15 +341,15 @@ export function OpenYear({ schoolId }: { schoolId: string }): React.JSX.Element 
         className="space-y-3"
       >
         <div className="grid gap-3 sm:grid-cols-3">
-          <Text name="name" label="Name" required defaultValue={String(nextYear)} />
-          <Text
+          <FormField name="name" label="Name" required defaultValue={String(nextYear)} />
+          <FormField
             name="startDate"
             label="Starts"
             type="date"
             required
             defaultValue={`${nextYear}-01-01`}
           />
-          <Text
+          <FormField
             name="endDate"
             label="Ends"
             type="date"
@@ -395,7 +358,7 @@ export function OpenYear({ schoolId }: { schoolId: string }): React.JSX.Element 
           />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="makeCurrent" defaultChecked className="h-4 w-4" />
+          <Checkbox name="makeCurrent" defaultChecked />
           Make this the current year
         </label>
         <Submit busy={busy} label="Open year" />
@@ -412,48 +375,42 @@ export function CloseYear({
   name: string;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
   const { busy, error, send, clear } = useSubmit();
 
   return (
-    <Panel
-      title={`Close ${name}`}
-      description="Closing is not reversible from here, and it requires a reason."
+    <ConfirmDialog
       open={open}
-      onOpen={() => setOpen(true)}
-      onClose={() => {
-        setOpen(false);
-        clear();
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) clear();
       }}
+      trigger={
+        <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>
+          Close {name}
+        </Button>
+      }
+      title={`Close ${name}`}
+      description="Closing is not reversible from here, and it requires a reason. At least ten characters — somebody reads this a year later."
+      reason={{
+        value: reason,
+        onChange: setReason,
+        label: 'Reason',
+        placeholder: 'The 2027 session has finished',
+        minLength: 3,
+      }}
+      confirmLabel={busy ? 'Saving…' : 'Close year'}
+      destructive
+      busy={busy}
       error={error}
-    >
-      <form
-        onSubmit={(e: FormEvent<HTMLFormElement>) => {
-          e.preventDefault();
-          const f = new FormData(e.currentTarget);
-          void send(`/api/v1/academic-years/${academicYearId}/close`, {
-            reason: str(f, 'reason'),
-          });
-        }}
-        className="space-y-3"
-      >
-        <Text
-          name="reason"
-          label="Reason"
-          required
-          placeholder="The 2027 session has finished"
-        />
-        <p className="text-sm text-[var(--color-text-muted)]">
-          At least ten characters — somebody reads this a year later.
-        </p>
-        <Submit busy={busy} label="Close year" />
-      </form>
-    </Panel>
+      onConfirm={() => void send(`/api/v1/academic-years/${academicYearId}/close`, { reason })}
+    />
   );
 }
 
 // ── shared ───────────────────────────────────────────────────────────────────
 
-function Select({
+function PlainSelect({
   name,
   label,
   options,
@@ -470,15 +427,13 @@ function Select({
 }): React.JSX.Element {
   return (
     <div>
-      <label htmlFor={name} className="block text-sm font-medium">
-        {label}
-      </label>
-      <select
+      <Label htmlFor={name}>{label}</Label>
+      <UiSelect
         id={name}
         name={name}
         required
         {...(onChange ? { value, onChange: (e) => onChange(e.target.value) } : {})}
-        className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
+        className="mt-1"
       >
         {options.length === 0 && <option value="">None available</option>}
         {options.map((o) => (
@@ -486,7 +441,7 @@ function Select({
             {o.label}
           </option>
         ))}
-      </select>
+      </UiSelect>
       {hint && <p className="mt-1 text-sm text-[var(--color-text-muted)]">{hint}</p>}
     </div>
   );

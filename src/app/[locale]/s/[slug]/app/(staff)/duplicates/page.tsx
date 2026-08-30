@@ -42,7 +42,7 @@ export default async function DuplicatesPage({
     return (
       <main className="mx-auto max-w-4xl p-6">
         <p className="mb-4 text-sm">
-          <Link href={`${base}/dashboard`} className="underline">
+          <Link href={`${base}/dashboard`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
             ← Dashboard
           </Link>
         </p>
@@ -61,12 +61,12 @@ export default async function DuplicatesPage({
   return (
     <main className="mx-auto max-w-4xl p-6">
       <p className="mb-4 text-sm">
-        <Link href={`${base}/dashboard`} className="underline">
+        <Link href={`${base}/dashboard`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           ← Dashboard
         </Link>
       </p>
 
-      <h1 className="text-xl font-semibold">Possible duplicates</h1>
+      <h1 className="font-serif text-2xl text-[var(--color-text)]">Possible duplicates</h1>
       <p className="mt-2 mb-8 text-[var(--color-text-muted)]">
         Records that look like the same person. Nothing is merged until somebody
         chooses which one to keep — the other is kept too, marked as merged, so

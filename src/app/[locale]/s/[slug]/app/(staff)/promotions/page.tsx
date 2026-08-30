@@ -25,6 +25,8 @@ import { readSessionToken } from '../../../../../../api/_lib/session-cookie';
 import { can } from '../../../../../../../shared/auth-context';
 import { appPath } from '../../../../../../../shared/paths';
 import { PromotionRun, RecentRuns, type Option, type Candidate } from './PromotionForms';
+import { Button, Label, Select } from '../../../../../../../components/ui';
+import { EmptyState } from '../../../../../../../components/patterns';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +58,7 @@ export default async function PromotionsPage({
     return (
       <main className="mx-auto max-w-4xl p-6">
         <p className="mb-4 text-sm">
-          <Link href={`${base}/dashboard`} className="underline">
+          <Link href={`${base}/dashboard`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
             ← Dashboard
           </Link>
         </p>
@@ -135,12 +137,12 @@ export default async function PromotionsPage({
   return (
     <main className="mx-auto max-w-4xl p-6">
       <p className="mb-4 text-sm">
-        <Link href={`${base}/dashboard`} className="underline">
+        <Link href={`${base}/dashboard`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           ← Dashboard
         </Link>
       </p>
 
-      <h1 className="text-xl font-semibold">Promotion</h1>
+      <h1 className="font-serif text-2xl text-[var(--color-text)]">Promotion</h1>
       <p className="mt-2 mb-8 text-[var(--color-text-muted)]">
         Moves a section into the next academic year. Roll numbers are reassigned
         in the order of the current ones. Dues are not touched — arrears carry
@@ -148,56 +150,48 @@ export default async function PromotionsPage({
       </p>
 
       {/* A plain GET, so the roster is a URL. No JavaScript on this path. */}
-      <form method="get" className="mb-8 grid gap-4 rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 sm:grid-cols-3">
-        <label className="block text-sm">
-          <span className="font-medium">Promote from year</span>
-          <select
-            name="fromYearId"
-            defaultValue={fromYearId ?? ''}
-            required
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
-          >
+      <form
+        method="get"
+        className="mb-8 grid gap-4 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 shadow-[var(--shadow-sm)] sm:grid-cols-3"
+      >
+        <div>
+          <Label>Promote from year</Label>
+          <Select name="fromYearId" defaultValue={fromYearId ?? ''} required className="mt-2">
             <option value="">Choose…</option>
             {yearOptions.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </div>
 
-        <label className="block text-sm">
-          <span className="font-medium">Section</span>
-          <select
-            name="sectionId"
-            defaultValue={sectionId ?? ''}
-            required
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
-          >
+        <div>
+          <Label>Section</Label>
+          <Select name="sectionId" defaultValue={sectionId ?? ''} required className="mt-2">
             <option value="">Choose…</option>
             {sectionOptions.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </div>
 
         <div className="flex items-end">
-          <button
-            type="submit"
-            className="min-h-11 w-full rounded border border-[var(--color-border)] px-4 font-medium"
-          >
+          <Button type="submit" variant="secondary" className="w-full">
             Show the roster
-          </button>
+          </Button>
         </div>
       </form>
 
       {chosen && roster.length === 0 && (
-        <p className="mb-8 rounded border border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
-          Nobody is enrolled in that section for that year. Check the year before
-          checking the section — an empty roster is far more often the wrong year.
-        </p>
+        <div className="mb-8">
+          <EmptyState
+            title="Nobody is enrolled in that section for that year."
+            description="Check the year before checking the section — an empty roster is far more often the wrong year."
+          />
+        </div>
       )}
 
       {chosen && roster.length > 0 && (

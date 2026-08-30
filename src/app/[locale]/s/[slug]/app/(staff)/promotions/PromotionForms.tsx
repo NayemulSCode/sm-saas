@@ -10,6 +10,20 @@
  */
 
 import { useState, type FormEvent } from 'react';
+import {
+  Badge,
+  Button,
+  Input,
+  Label,
+  Select,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '../../../../../../../components/ui';
+import { ApiErrorAlert, type ApiError } from '../../../../../../../components/patterns';
 
 export interface Option {
   id: string;
@@ -47,12 +61,6 @@ const OUTCOME_LABEL: Record<Outcome, string> = {
   transferred: 'Transferred out',
   withdrawn: 'Withdrawn',
 };
-
-interface ApiError {
-  code: string;
-  message: string;
-  requestId: string;
-}
 
 /** Branch on `code`; the message is localised and never parsed. */
 const MESSAGES: Record<string, string> = {
@@ -92,19 +100,7 @@ async function send(
 }
 
 function Problem({ error }: { error: ApiError }): React.JSX.Element {
-  return (
-    <p
-      role="alert"
-      className="rounded border border-[var(--color-danger)] px-3 py-2 text-sm text-[var(--color-danger)]"
-    >
-      {MESSAGES[error.code] ?? error.message}
-      {error.requestId && (
-        <span className="mt-1 block text-xs text-[var(--color-text-muted)]">
-          Reference: {error.requestId}
-        </span>
-      )}
-    </p>
-  );
+  return <ApiErrorAlert text={MESSAGES[error.code] ?? error.message} requestId={error.requestId} />;
 }
 
 export function PromotionRun({
@@ -184,8 +180,8 @@ export function PromotionRun({
 
   if (done) {
     return (
-      <section className="mb-8 rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
-        <h2 className="font-medium">Promotion done</h2>
+      <section className="mb-8 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 shadow-[var(--shadow-sm)]">
+        <h2 className="font-medium text-[var(--color-text)]">Promotion done</h2>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
           {done.enrolled} {done.enrolled === 1 ? 'student' : 'students'} enrolled in the
           new year.
@@ -199,13 +195,9 @@ export function PromotionRun({
           It is listed under recent promotions below, and can be taken back from
           there — including later, and by somebody else.
         </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-3 min-h-11 rounded border border-[var(--color-border)] px-4"
-        >
+        <Button variant="secondary" onClick={() => window.location.reload()} className="mt-3">
           Done
-        </button>
+        </Button>
       </section>
     );
   }
@@ -215,13 +207,13 @@ export function PromotionRun({
     const toYearLabel = years.find((o) => o.id === toYearId)?.label ?? '';
 
     return (
-      <section className="mb-8 rounded border border-[var(--color-danger)] p-4">
-        <h2 className="font-medium">Confirm the promotion</h2>
-        <p className="mt-2 text-sm">
+      <section className="mb-8 rounded-[var(--radius-lg)] border border-[var(--color-danger)] p-4">
+        <h2 className="font-medium text-[var(--color-text)]">Confirm the promotion</h2>
+        <p className="mt-2 text-sm text-[var(--color-text)]">
           <strong>{sourceLabel}</strong> in <strong>{fromYearLabel}</strong> →{' '}
           <strong>{targetLabel}</strong> in <strong>{toYearLabel}</strong>
         </p>
-        <ul className="mt-3 text-sm">
+        <ul className="mt-3 text-sm text-[var(--color-text)]">
           {(Object.keys(OUTCOME_LABEL) as Outcome[])
             .filter((o) => counts[o] > 0)
             .map((o) => (
@@ -242,22 +234,12 @@ export function PromotionRun({
         )}
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={(e) => void run(e)}
-            className="min-h-11 rounded bg-[var(--color-danger)] px-4 font-medium text-[var(--brand-on-primary)] disabled:opacity-60"
-          >
+          <Button variant="destructive" disabled={busy} onClick={(e) => void run(e)}>
             {busy ? 'Promoting…' : `Promote ${roster.length}`}
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            disabled={busy}
-            className="min-h-11 rounded border border-[var(--color-border)] px-4"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => setConfirming(false)} disabled={busy}>
             Back
-          </button>
+          </Button>
         </div>
       </section>
     );
@@ -273,7 +255,7 @@ export function PromotionRun({
       }}
       className="mb-8"
     >
-      <h2 className="mb-3 font-medium">
+      <h2 className="mb-3 font-medium text-[var(--color-text)]">
         {sourceLabel} · {roster.length} {roster.length === 1 ? 'student' : 'students'}
       </h2>
 
@@ -283,14 +265,14 @@ export function PromotionRun({
         </div>
       )}
 
-      <div className="grid gap-4 rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="font-medium">Into year</span>
-          <select
+      <div className="grid gap-4 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 shadow-[var(--shadow-sm)] sm:grid-cols-2">
+        <div>
+          <Label>Into year</Label>
+          <Select
             value={toYearId}
             onChange={(e) => setToYearId(e.target.value)}
             required
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
+            className="mt-2"
           >
             <option value="">Choose…</option>
             {years
@@ -302,16 +284,16 @@ export function PromotionRun({
                   {y.label}
                 </option>
               ))}
-          </select>
-        </label>
+          </Select>
+        </div>
 
-        <label className="block text-sm">
-          <span className="font-medium">Into section</span>
-          <select
+        <div>
+          <Label>Into section</Label>
+          <Select
             value={targetSectionId}
             onChange={(e) => setTargetSectionId(e.target.value)}
             required
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
+            className="mt-2"
           >
             <option value="">Choose…</option>
             {sections.map((o) => (
@@ -319,12 +301,12 @@ export function PromotionRun({
                 {o.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </div>
 
-        <label className="block text-sm">
-          <span className="font-medium">Everyone is</span>
-          <select
+        <div>
+          <Label>Everyone is</Label>
+          <Select
             value={defaultOutcome}
             onChange={(e) => {
               const next = e.target.value as 'promoted' | 'retained';
@@ -334,101 +316,93 @@ export function PromotionRun({
               // honest choice; silently keeping them is not.
               setExceptions({});
             }}
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
+            className="mt-2"
           >
             <option value="promoted">Promoted</option>
             <option value="retained">Repeating</option>
-          </select>
-        </label>
+          </Select>
+        </div>
 
-        <label className="block text-sm">
-          <span className="font-medium">Repeaters stay in</span>
-          <select
+        <div>
+          <Label>Repeaters stay in</Label>
+          <Select
             value={retainSectionId}
             onChange={(e) => setRetainSectionId(e.target.value)}
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
+            className="mt-2"
           >
             {sections.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </div>
 
-        <label className="block text-sm sm:col-span-2">
-          <span className="font-medium">Reason</span>
-          <input
+        <div className="sm:col-span-2">
+          <Label>Reason</Label>
+          <Input
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             required
             minLength={3}
             placeholder="End of academic year 2026"
-            className="mt-2 min-h-11 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-base"
+            className="mt-2"
           />
           <span className="mt-1 block text-sm text-[var(--color-text-muted)]">
             Recorded against every enrolment this creates.
           </span>
-        </label>
+        </div>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded border border-[var(--color-border)]">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[var(--color-border)] text-left">
-              <th className="p-3 font-medium">Roll</th>
-              <th className="p-3 font-medium">Student</th>
-              <th className="p-3 font-medium">Outcome</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Roll</TableHead>
+              <TableHead>Student</TableHead>
+              <TableHead>Outcome</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {roster.map((c) => {
               const outcome = outcomeFor(c.id);
               return (
-                <tr key={c.id} className="border-b border-[var(--color-border)] last:border-0">
-                  <td className="p-3 tabular-nums text-[var(--color-text-muted)]">
+                <TableRow key={c.id}>
+                  <TableCell className="tabular-nums text-[var(--color-text-muted)]">
                     {c.rollNo ?? '—'}
-                  </td>
-                  <td className="p-3">
+                  </TableCell>
+                  <TableCell>
                     {c.nameBn}
                     <span className="block text-xs text-[var(--color-text-muted)]">
                       {c.nameEn} · {c.studentCode}
                     </span>
-                  </td>
-                  <td className="p-3">
-                    <select
+                  </TableCell>
+                  <TableCell>
+                    <Select
                       aria-label={`Outcome for ${c.nameEn}`}
                       value={outcome}
                       onChange={(e) => setOutcome(c.id, e.target.value as Outcome)}
-                      className={`min-h-11 w-full rounded border bg-[var(--color-surface)] px-2 ${
-                        outcome === defaultOutcome
-                          ? 'border-[var(--color-border)]'
-                          : 'border-[var(--color-danger)]'
-                      }`}
+                      invalid={outcome !== defaultOutcome}
                     >
                       {(Object.keys(OUTCOME_LABEL) as Outcome[]).map((o) => (
                         <option key={o} value={o}>
                           {OUTCOME_LABEL[o]}
                         </option>
                       ))}
-                    </select>
-                  </td>
-                </tr>
+                    </Select>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-4">
-        <button
-          type="submit"
-          disabled={!ready}
-          className="min-h-11 rounded bg-[var(--brand-primary)] px-4 font-medium text-[var(--brand-on-primary)] disabled:opacity-60"
-        >
+        <Button type="submit" disabled={!ready}>
           Review
-        </button>
+        </Button>
         <p className="text-sm text-[var(--color-text-muted)]">
           {counts.promoted} promoted · {counts.retained} repeating ·{' '}
           {counts.transferred + counts.withdrawn} leaving
@@ -460,7 +434,7 @@ export function RecentRuns({ batches }: { batches: Batch[] }): React.JSX.Element
 
   return (
     <section>
-      <h2 className="mb-3 font-medium">Recent promotions</h2>
+      <h2 className="mb-3 font-medium text-[var(--color-text)]">Recent promotions</h2>
 
       {error && (
         <div className="mb-4">
@@ -473,11 +447,11 @@ export function RecentRuns({ batches }: { batches: Batch[] }): React.JSX.Element
           No promotions have been run at this school yet.
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--color-border)] rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+        <ul className="divide-y divide-[var(--color-border)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-sm)]">
           {batches.map((b) => (
             <li key={b.id} className="flex flex-wrap items-baseline justify-between gap-3 p-4">
               <div>
-                <p className="font-medium">
+                <p className="font-medium text-[var(--color-text)]">
                   {[b.className, b.sectionNameEn].filter(Boolean).join(' ') || 'Removed section'}
                   <span className="font-normal text-[var(--color-text-muted)]">
                     {' '}
@@ -497,16 +471,16 @@ export function RecentRuns({ batches }: { batches: Batch[] }): React.JSX.Element
               </div>
 
               {b.undoneAt === null ? (
-                <button
-                  type="button"
+                <Button
+                  variant="destructive"
+                  size="sm"
                   disabled={busy !== null}
                   onClick={() => void undo(b)}
-                  className="min-h-11 rounded border border-[var(--color-danger)] px-4 text-[var(--color-danger)] disabled:opacity-60"
                 >
                   {busy === b.id ? 'Undoing…' : 'Undo'}
-                </button>
+                </Button>
               ) : (
-                <span className="text-sm text-[var(--color-text-muted)]">Undone</span>
+                <Badge tone="neutral">Undone</Badge>
               )}
             </li>
           ))}

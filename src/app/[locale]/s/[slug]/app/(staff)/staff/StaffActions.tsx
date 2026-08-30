@@ -16,6 +16,8 @@
  */
 
 import { useState, type FormEvent } from 'react';
+import { Badge, Button, Card, CardContent } from '../../../../../../../components/ui';
+import { FormField } from '../../../../../../../components/patterns';
 
 export interface RoleOption {
   id: string;
@@ -119,10 +121,7 @@ export function MemberRoles({
           </span>
         )}
         {roles.map((r) => (
-          <span
-            key={r.id}
-            className="flex items-center gap-1 rounded bg-[var(--brand-primary)] px-2 py-0.5 text-xs text-[var(--brand-on-primary)]"
-          >
+          <Badge key={r.id} tone="brand" className="gap-1">
             {r.code}
             {canManage && !isSelf && (
               <button
@@ -135,7 +134,7 @@ export function MemberRoles({
                 ×
               </button>
             )}
-          </span>
+          </Badge>
         ))}
       </div>
 
@@ -146,9 +145,10 @@ export function MemberRoles({
             .map((r) => {
               const allowed = grantable(r);
               return (
-                <button
+                <Button
                   key={r.id}
-                  type="button"
+                  variant="secondary"
+                  size="sm"
                   disabled={busy || !allowed}
                   onClick={() => void grant(r.id)}
                   title={
@@ -156,10 +156,10 @@ export function MemberRoles({
                       ? `Grant ${r.code}`
                       : `${r.code} confers permissions you do not hold`
                   }
-                  className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs disabled:opacity-40"
+                  className="min-h-0 py-0.5 text-xs"
                 >
                   + {r.code}
-                </button>
+                </Button>
               );
             })}
         </div>
@@ -229,114 +229,72 @@ export function InviteStaff(): React.JSX.Element {
 
   if (link !== null) {
     return (
-      <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
-        <p className="font-medium">Invite created</p>
-        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Send them this link. It works once, and it is shown only now — it is
-          never stored in a form anybody can read back.
-        </p>
-        <code className="mt-2 block break-all rounded bg-[var(--color-surface)] p-2 text-xs">
-          {`${window.location.origin}/app/invite/accept?token=${link}`}
-        </code>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-3 min-h-11 rounded border border-[var(--color-border)] px-4"
-        >
-          Done
-        </button>
-      </div>
+      <Card>
+        <CardContent className="pt-5">
+          <p className="font-medium text-[var(--color-text)]">Invite created</p>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+            Send them this link. It works once, and it is shown only now — it is
+            never stored in a form anybody can read back.
+          </p>
+          <code className="mt-2 block break-all rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] p-2 text-xs">
+            {`${window.location.origin}/app/invite/accept?token=${link}`}
+          </code>
+          <Button variant="secondary" onClick={() => window.location.reload()} className="mt-3">
+            Done
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="min-h-11 rounded bg-[var(--brand-primary)] px-4 text-sm text-[var(--brand-on-primary)]"
-      >
-        Invite a member of staff
-      </button>
-    );
+    return <Button onClick={() => setOpen(true)}>Invite a member of staff</Button>;
   }
 
   return (
-    <form
-      onSubmit={(e) => void submit(e)}
-      className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4"
-    >
-      <p className="mb-3 font-medium">Invite a member of staff</p>
+    <Card>
+      <CardContent className="pt-5">
+        <form onSubmit={(e) => void submit(e)}>
+          <p className="mb-3 font-medium text-[var(--color-text)]">Invite a member of staff</p>
 
-      {error && (
-        <p role="alert" className="mb-3 text-sm text-[var(--color-danger)]">
-          {error}
-        </p>
-      )}
+          {error && (
+            <p role="alert" className="mb-3 text-sm text-[var(--color-danger)]">
+              {error}
+            </p>
+          )}
 
-      <div className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="nameBn" className="block text-sm font-medium">
-              Name (Bangla)
-            </label>
-            <input
-              id="nameBn"
-              name="nameBn"
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField name="nameBn" label="Name (Bangla)" required />
+              <FormField name="nameEn" label="Name (English)" required />
+            </div>
+
+            <FormField
+              name="identifier"
+              label="Mobile or email"
               required
-              className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
+              placeholder="+8801XXXXXXXXX"
+              hint="Becomes their login. No password is ever sent — they set their own from the link."
             />
           </div>
-          <div>
-            <label htmlFor="nameEn" className="block text-sm font-medium">
-              Name (English)
-            </label>
-            <input
-              id="nameEn"
-              name="nameEn"
-              required
-              className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
-            />
+
+          <div className="mt-4 flex gap-2">
+            <Button type="submit" disabled={busy}>
+              {busy ? 'Inviting…' : 'Create invite'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setOpen(false);
+                setError(null);
+              }}
+            >
+              Cancel
+            </Button>
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="identifier" className="block text-sm font-medium">
-            Mobile or email
-          </label>
-          <input
-            id="identifier"
-            name="identifier"
-            required
-            placeholder="+8801XXXXXXXXX"
-            className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
-          />
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Becomes their login. No password is ever sent — they set their own
-            from the link.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex gap-2">
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-11 rounded bg-[var(--brand-primary)] px-4 text-[var(--brand-on-primary)] disabled:opacity-60"
-        >
-          {busy ? 'Inviting…' : 'Create invite'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            setError(null);
-          }}
-          className="min-h-11 rounded border border-[var(--color-border)] px-4"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
