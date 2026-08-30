@@ -107,6 +107,15 @@ endpoints. It is never in a response body and cannot be read from script.
 | `POST` | [`/api/v1/memberships/{membershipId}/roles`](#post-api-v1-memberships-membershipId-roles) | `role.manage` |
 | `POST` | [`/api/v1/memberships/{membershipId}/roles/revoke`](#post-api-v1-memberships-membershipId-roles-revoke) | `role.manage` |
 
+### Finance
+
+| | Endpoint | Permission |
+|---|---|---|
+| `GET` | [`/api/v1/fee-heads`](#get-api-v1-fee-heads) | `fee.read` |
+| `POST` | [`/api/v1/fee-heads`](#post-api-v1-fee-heads) | `fee.structure.manage` |
+| `GET` | [`/api/v1/fee-structures`](#get-api-v1-fee-structures) | `fee.read` |
+| `POST` | [`/api/v1/fee-structures`](#post-api-v1-fee-structures) | `fee.structure.manage` |
+
 ### Operations
 
 | | Endpoint | Permission |
@@ -1744,6 +1753,163 @@ _Permission: `role.manage`_
 |---|---|---|
 | 403 | `SELF_GRANT_BLOCKED` | Locking yourself out of a one-administrator school is unrecoverable. |
 | 404 | `NOT_GRANTED` | They do not hold that role. |
+
+## Finance
+
+### `GET /api/v1/fee-heads`
+
+**List fee heads**
+
+Tenant-wide, not per-school (§13.1) — a multi-school tenant shares one catalogue of fee kinds and prices them per school through fee structures instead.
+
+_Permission: `fee.read`_
+
+**200** — Success.
+
+### `POST /api/v1/fee-heads`
+
+**Add a fee head**
+
+The priced items a school charges — tuition, exam, transport, a security deposit.
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "nameBn": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "nameEn": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "one_time",
+        "monthly",
+        "term",
+        "annual"
+      ]
+    },
+    "isRefundable": {
+      "default": false,
+      "type": "boolean"
+    },
+    "glCode": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "code",
+    "nameBn",
+    "nameEn",
+    "frequency"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 409 | `CODE_TAKEN` | That code is already in use. |
+
+### `GET /api/v1/fee-structures`
+
+**List fee structures**
+
+_Permission: `fee.read`_
+
+**Query**
+
+| Name | Meaning |
+|---|---|
+| `academicYearId` | Optional. Narrows the list to one academic year. |
+
+**200** — Success.
+
+### `POST /api/v1/fee-structures`
+
+**Price a class or a section for a fee head**
+
+Exactly one of `classLevelId` / `sectionId` — class-wide or section-specific, never both, never neither. A section can carry its own price on top of the class-wide one.
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "academicYearId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "feeHeadId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "classLevelId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "sectionId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "amountMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "dueDay": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31
+    }
+  },
+  "required": [
+    "academicYearId",
+    "feeHeadId",
+    "amountMinor"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `YEAR_NOT_FOUND` | No such academic year at this school. |
+| 404 | `HEAD_NOT_FOUND` | No such fee head. |
+| 404 | `SCOPE_NOT_FOUND` | No such class level or section. |
+| 400 | `SCOPE_SCHOOL_MISMATCH` | The class level or section belongs to a different school than the academic year. |
+| 409 | `DUPLICATE_SCOPE` | This head already has a price for this exact scope, in this year. |
 
 ## Operations
 

@@ -96,16 +96,23 @@ export const MODULES = {
 } as const satisfies Record<string, readonly Permission[]>;
 
 /**
- * §9.6 — only permissions whose module EXISTS in 3a are granted in seeded
- * roles. The templates below declare their full long-term permission set, so
- * when 3b–3d ship this filter is the single thing that relaxes; the role
+ * §9.6 — only permissions whose module EXISTS are granted in seeded roles.
+ * The templates below declare their full long-term permission set, so when a
+ * module ships this filter is the single thing that relaxes; the role
  * definitions themselves never need editing.
+ *
+ * `finance` joined this set once fee heads and fee structures had real use
+ * cases behind them (Phase 3b) — `mark.*` (assessment) and `platform.*`
+ * (the operator console, never a tenant role) have not shipped yet and stay
+ * out. The name is legacy from when 3a was the only phase this filter had
+ * ever been asked to gate; it is not literally "3a-only" any more.
  */
 export const LIVE_IN_3A = new Set<Permission>([
   ...MODULES.tenant,
   ...MODULES.structure,
   ...MODULES.directory,
   ...MODULES.data,
+  ...MODULES.finance,
 ]);
 
 /** Every tenant-level permission — the operator console is not a tenant role. */

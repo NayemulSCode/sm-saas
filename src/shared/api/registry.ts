@@ -51,6 +51,7 @@ import {
   MergePersonsSchema,
   UnmergePersonsSchema,
 } from '../../modules/directory/application/dto';
+import { CreateFeeHeadSchema, CreateFeeStructureSchema } from '../../modules/finance/application/dto';
 
 export interface QueryParam {
   name: string;
@@ -649,6 +650,54 @@ export const ENDPOINTS: Endpoint[] = [
     failures: [
       { status: 403, code: 'SELF_GRANT_BLOCKED', when: 'Locking yourself out of a one-administrator school is unrecoverable.' },
       { status: 404, code: 'NOT_GRANTED', when: 'They do not hold that role.' },
+    ],
+  },
+
+  // ── finance ────────────────────────────────────────────────────────────────
+  {
+    method: 'GET',
+    path: '/api/v1/fee-heads',
+    tag: 'Finance',
+    summary: 'List fee heads',
+    description: 'Tenant-wide, not per-school (§13.1) — a multi-school tenant shares one catalogue of fee kinds and prices them per school through fee structures instead.',
+    permission: 'fee.read',
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/fee-heads',
+    tag: 'Finance',
+    summary: 'Add a fee head',
+    description: 'The priced items a school charges — tuition, exam, transport, a security deposit.',
+    permission: 'fee.structure.manage',
+    body: CreateFeeHeadSchema,
+    successStatus: 201,
+    failures: [{ status: 409, code: 'CODE_TAKEN', when: 'That code is already in use.' }],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/fee-structures',
+    tag: 'Finance',
+    summary: 'List fee structures',
+    permission: 'fee.read',
+    query: [{ name: 'academicYearId', description: 'Optional. Narrows the list to one academic year.' }],
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/fee-structures',
+    tag: 'Finance',
+    summary: 'Price a class or a section for a fee head',
+    description: 'Exactly one of `classLevelId` / `sectionId` — class-wide or section-specific, never both, never neither. A section can carry its own price on top of the class-wide one.',
+    permission: 'fee.structure.manage',
+    body: CreateFeeStructureSchema,
+    successStatus: 201,
+    failures: [
+      { status: 404, code: 'YEAR_NOT_FOUND', when: 'No such academic year at this school.' },
+      { status: 404, code: 'HEAD_NOT_FOUND', when: 'No such fee head.' },
+      { status: 404, code: 'SCOPE_NOT_FOUND', when: 'No such class level or section.' },
+      { status: 400, code: 'SCOPE_SCHOOL_MISMATCH', when: 'The class level or section belongs to a different school than the academic year.' },
+      { status: 409, code: 'DUPLICATE_SCOPE', when: 'This head already has a price for this exact scope, in this year.' },
     ],
   },
 

@@ -84,15 +84,44 @@ describe('the seeded role templates', () => {
     expect(rows[0]?.permissions).toContain('membership.manage');
   });
 
-  // §9.6 — modules that do not ship in 3a are declared but not granted.
-  it('does not grant permissions for modules that do not exist yet', async () => {
+  // §9.6 — modules that do not ship yet are declared but not granted. Finance
+  // moved off this list once fee heads and fee structures had real use cases
+  // behind them (Phase 3b) — see the assertions below instead.
+  it('does not grant permissions for modules that still do not exist', async () => {
     const { rows } = await admin.query<{ code: string; permissions: string[] }>(
       'SELECT code, permissions FROM role_template',
     );
     for (const row of rows) {
-      expect(row.permissions.filter((p) => p.startsWith('fee.')), row.code).toEqual([]);
       expect(row.permissions.filter((p) => p.startsWith('mark.')), row.code).toEqual([]);
       expect(row.permissions.filter((p) => p.startsWith('platform.')), row.code).toEqual([]);
     }
+  });
+
+  /*
+   * The flip itself. §9.6's filter is the ONE thing that changes when a module
+   * ships — the specific assertion the previous test used to make (no `fee.*`
+   * anywhere) would now be silently wrong, so this is the replacement: the
+   * separations §9.5 cares about most (collect vs waive, read vs write) must
+   * survive the trip through `pnpm seed` into the actual table, not just hold
+   * in `role-templates.ts`.
+   */
+  it('grants finance permissions now that the module has use cases', async () => {
+    const { rows } = await admin.query<{ code: string; permissions: string[] }>(
+      `SELECT code, permissions FROM role_template
+       WHERE code IN ('Principal', 'Accountant', 'OfficeAssistant', 'Guardian')`,
+    );
+    const by = new Map(rows.map((r) => [r.code, r.permissions]));
+
+    expect(by.get('Principal')).toEqual(expect.arrayContaining(['fee.structure.manage', 'fee.waive']));
+    // The office assistant takes money; only the principal forgives it.
+    expect(by.get('Accountant')).toEqual(expect.arrayContaining(['fee.collect', 'fee.reconcile']));
+    expect(by.get('Accountant')).not.toContain('fee.waive');
+    expect(by.get('OfficeAssistant')).toContain('fee.collect');
+    expect(by.get('OfficeAssistant')).not.toContain('fee.waive');
+    // A guardian reads their own child's fees. `attendance.read` and
+    // `result.read` are also DECLARED for Guardian (§9.2) but not granted —
+    // calendar/attendance and assessment have not shipped yet, so only the
+    // directory and finance permissions actually land in the table.
+    expect(new Set(by.get('Guardian'))).toEqual(new Set(['fee.read', 'student.read']));
   });
 });

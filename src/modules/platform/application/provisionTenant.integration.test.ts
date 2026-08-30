@@ -302,8 +302,10 @@ describe('the owner can actually use the school', () => {
     expect(ctx.value.readOnly).toBe(false);
     expect(ctx.value.permissions.has('membership.manage')).toBe(true);
     expect(ctx.value.permissions.has('student.write')).toBe(true);
-    // §9.6 — modules that do not ship in 3a are declared but not granted.
-    expect(ctx.value.permissions.has('fee.collect')).toBe(false);
+    // Finance shipped its first use cases in Phase 3b, so the principal now
+    // holds fee.collect too — assessment (§9.6's filter) has not shipped yet.
+    expect(ctx.value.permissions.has('fee.collect')).toBe(true);
+    expect(ctx.value.permissions.has('mark.write')).toBe(false);
     // The owner is not scoped to a campus.
     expect(ctx.value.scope).toEqual({});
 

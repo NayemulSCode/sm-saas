@@ -83,3 +83,14 @@ export const zStudentStatus = z.enum([
 export const zTime = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'structure.error.invalidShiftTimes');
+
+/**
+ * Money on the wire: minor units as a STRING (§13.7). A JSON number would
+ * lose precision at the edges of what a JS number can represent exactly, and
+ * silently rounding a poisha is not acceptable (invariant 2). Parsed into a
+ * `Money` by the use case, not here — same reasoning as `zLocalDate`: this
+ * boundary should not own currency semantics, only shape.
+ */
+export const zMoney = z.string().regex(/^-?\d+$/, 'common.error.invalidAmount');
+
+export const zFeeFrequency = z.enum(['one_time', 'monthly', 'term', 'annual']);
