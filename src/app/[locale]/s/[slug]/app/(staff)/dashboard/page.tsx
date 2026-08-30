@@ -170,6 +170,11 @@ export default async function DashboardPage({
             Promotion
           </Link>
         )}
+        {can(ctx.value, 'fee.read') && (
+          <Link href={`${base}/fees`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+            Fees
+          </Link>
+        )}
       </nav>
 
       <header className="mb-6">

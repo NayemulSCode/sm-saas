@@ -67,8 +67,12 @@ function divRoundHalfEven(numerator: bigint, denominator: bigint): bigint {
   return negative ? -result : result;
 }
 
-/** Indic grouping: 1,23,456.78 — lakh/crore, NOT thousands. */
-function groupIndic(intPart: string): string {
+/**
+ * Indic grouping: 1,23,456.78 — lakh/crore, NOT thousands.
+ * Exported for `BanglaNumber` (§12.1), which groups plain integers — roll
+ * counts, not money — and would otherwise duplicate this exact algorithm.
+ */
+export function groupIndic(intPart: string): string {
   if (intPart.length <= 3) return intPart;
   const last3 = intPart.slice(-3);
   const rest = intPart.slice(0, -3);
