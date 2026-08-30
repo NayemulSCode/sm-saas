@@ -162,6 +162,9 @@ function ctxFor(permissions: readonly Permission[], scope: Scope = {}): AuthCont
     membershipId: Ids.generate<'membership'>(),
     permissions: new Set(permissions),
     scope,
+    // No role modeled here — this exercises raw permission checks, not
+    // isHouseholdOnly, which has its own tests below.
+    roleCodes: [],
     locale: 'bn',
     requestId: 'matrix',
     readOnly: false,

@@ -75,6 +75,7 @@ endpoints. It is never in a response body and cannot be read from script.
 
 | | Endpoint | Permission |
 |---|---|---|
+| `GET` | [`/api/v1/guardian/children`](#get-api-v1-guardian-children) | `student.read` |
 | `POST` | [`/api/v1/students/{studentId}/guardians`](#post-api-v1-students-studentId-guardians) | `guardian.write` |
 | `POST` | [`/api/v1/students/{studentId}/guardians/unlink`](#post-api-v1-students-studentId-guardians-unlink) | `guardian.write` |
 
@@ -1127,6 +1128,16 @@ _Permission: `student.write`_
 | 409 | `ALREADY_LINKED` | They are already in two different groups — that is a merge, not a link. |
 
 ## Guardians
+
+### `GET /api/v1/guardian/children`
+
+**The caller's own children**
+
+Never takes a student id. The result is entirely determined by `guardian_link` rows already on file for `ctx.personId` — there is nothing in the request a guardian could alter to see a different family. This is deliberately a SEPARATE endpoint from `GET /students`, which answers for any student in the tenant to anyone holding `student.read`; a guardian holds that same permission key, so the household surface must never call the staff one.
+
+_Permission: `student.read`_
+
+**200** — An array of `{ studentId, studentCode, status, nameBn, nameEn, classNameEn, sectionNameEn, rollNo, relationship, isBillingGuardian, isPrimaryContact }`, one row per child regardless of how many years of enrolment history they carry.
 
 ### `POST /api/v1/students/{studentId}/guardians`
 

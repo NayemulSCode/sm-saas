@@ -31,6 +31,8 @@ export {
   type PromotionBatchRow,
 } from './application/listPromotionBatches';
 
+export { listMyChildren, type MyChild } from './application/listMyChildren';
+
 export {
   linkGuardian,
   unlinkGuardian,

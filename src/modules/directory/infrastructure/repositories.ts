@@ -1068,4 +1068,54 @@ export const directory = {
       .where(and(eq(guardianLink.studentId, studentId), isNull(guardianLink.deletedAt)))
       .orderBy(asc(guardianLink.sequence));
   },
+
+  /**
+   * A guardian's own children — the query that makes the household surface
+   * safe to ship. `guardianPersonId` comes from `ctx.personId`, never from
+   * request input, so there is no id to forge: a guardian cannot be handed
+   * someone else's roster by constructing a URL, because none of the caller's
+   * input selects WHICH children are returned.
+   *
+   * `DISTINCT ON (student.id)` matters more than it looks. Promotion creates a
+   * NEW enrolment in the target year without touching the one it promoted
+   * FROM (§14.5 — undo has to find exactly what it created), so a promoted
+   * child carries a live enrolment row in more than one academic year. An
+   * unqualified join would show that child once per year they have ever been
+   * enrolled in. Newest enrolment wins — `enrolment.id` is a ULID, so it sorts
+   * chronologically the same way `student.id` already does elsewhere in this
+   * file (`searchStudents`'s cursor relies on the same property).
+   */
+  async childrenOf(tx: Tx, guardianPersonId: PersonId) {
+    return tx
+      .selectDistinctOn([student.id], {
+        id: student.id,
+        studentCode: student.studentCode,
+        status: student.status,
+        nameBn: person.nameBn,
+        nameEn: person.nameEn,
+        relationship: guardianLink.relationship,
+        isBillingGuardian: guardianLink.isBillingGuardian,
+        isPrimaryContact: guardianLink.isPrimaryContact,
+        rollNo: enrolment.rollNo,
+        sectionNameEn: section.nameEn,
+        classNameEn: classLevel.nameEn,
+      })
+      .from(guardianLink)
+      .innerJoin(student, eq(student.id, guardianLink.studentId))
+      .innerJoin(person, eq(person.id, student.personId))
+      .leftJoin(
+        enrolment,
+        and(eq(enrolment.studentId, student.id), isNull(enrolment.deletedAt)),
+      )
+      .leftJoin(section, eq(section.id, enrolment.sectionId))
+      .leftJoin(classLevel, eq(classLevel.id, section.classLevelId))
+      .where(
+        and(
+          eq(guardianLink.guardianPersonId, guardianPersonId),
+          isNull(guardianLink.deletedAt),
+          isNull(student.deletedAt),
+        ),
+      )
+      .orderBy(asc(student.id), desc(enrolment.id));
+  },
 };

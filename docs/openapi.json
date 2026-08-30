@@ -1858,6 +1858,74 @@
         ]
       }
     },
+    "/api/v1/guardian/children": {
+      "get": {
+        "tags": [
+          "Guardians"
+        ],
+        "summary": "The caller's own children",
+        "description": "Never takes a student id. The result is entirely determined by `guardian_link` rows already on file for `ctx.personId` — there is nothing in the request a guardian could alter to see a different family. This is deliberately a SEPARATE endpoint from `GET /students`, which answers for any student in the tenant to anyone holding `student.read`; a guardian holds that same permission key, so the household surface must never call the staff one.\n\n**Permission:** `student.read`",
+        "operationId": "get_api_v1_guardian_children",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "An array of `{ studentId, studentCode, status, nameBn, nameEn, classNameEn, sectionNameEn, rollNo, relationship, isBillingGuardian, isPrimaryContact }`, one row per child regardless of how many years of enrolment history they carry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/students/{studentId}": {
       "get": {
         "tags": [

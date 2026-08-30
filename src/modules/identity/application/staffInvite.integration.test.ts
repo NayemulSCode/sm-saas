@@ -68,6 +68,9 @@ function adminCtx(tenantId: TenantId, personId: PersonId): AuthContext {
     membershipId: nid<'membership'>(),
     permissions: new Set<Permission>(PERMISSIONS),
     scope: {},
+    // Not modeled against a real role — this actor holds every permission,
+    // which no real Principal does. Never exercises isHouseholdOnly.
+    roleCodes: ['Principal'],
     locale: 'bn',
     requestId: 'test',
     readOnly: false,

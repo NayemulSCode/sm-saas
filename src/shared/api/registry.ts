@@ -333,6 +333,18 @@ export const ENDPOINTS: Endpoint[] = [
     returns: '`{ items, nextCursor, hasMore }`. There is deliberately no total — a second count over the same predicate costs as much as the page.',
   },
   {
+    method: 'GET',
+    path: '/api/v1/guardian/children',
+    tag: 'Guardians',
+    summary: "The caller's own children",
+    description:
+      'Never takes a student id. The result is entirely determined by `guardian_link` rows already on file for `ctx.personId` — there is nothing in the request a guardian could alter to see a different family. This is deliberately a SEPARATE endpoint from `GET /students`, which answers for any student in the tenant to anyone holding `student.read`; a guardian holds that same permission key, so the household surface must never call the staff one.',
+    permission: 'student.read',
+    successStatus: 200,
+    returns: 'An array of `{ studentId, studentCode, status, nameBn, nameEn, classNameEn, sectionNameEn, rollNo, relationship, isBillingGuardian, isPrimaryContact }`, one row per child regardless of how many years of enrolment history they carry.',
+    failures: [],
+  },
+  {
     method: 'POST',
     path: '/api/v1/students',
     tag: 'Students',

@@ -12,7 +12,7 @@ import { redirect } from 'next/navigation';
 import { resolveAuthContext, tokenGenerator } from '../../../../../../../../modules/identity/index';
 import { getStructure } from '../../../../../../../../modules/structure/index';
 import { readSessionToken } from '../../../../../../../api/_lib/session-cookie';
-import { can } from '../../../../../../../../shared/auth-context';
+import { can, isHouseholdOnly } from '../../../../../../../../shared/auth-context';
 import { AdmitForm, type SectionOption } from './AdmitForm';
 import { appPath } from '../../../../../../../../shared/paths';
 
@@ -31,6 +31,15 @@ export default async function NewStudentPage({
 
   const ctx = await resolveAuthContext(token, { tokens: tokenGenerator });
   if (!ctx.ok) redirect(`${base}/login`);
+
+  /*
+   * A household session (Guardian or Student) must never reach a staff page,
+   * however it got here — a bookmark, a stale redirect target, a link pasted
+   * into a chat. `Librarian` holds the same base permission Guardian does
+   * (`student.read`), so a permission check alone cannot tell them apart; only
+   * the role can (`isHouseholdOnly`, shared/auth-context.ts).
+   */
+  if (isHouseholdOnly(ctx.value)) redirect(`${base}/children`);
 
   // Checked here so the page never renders a form the server would refuse.
   if (!can(ctx.value, 'student.write')) {

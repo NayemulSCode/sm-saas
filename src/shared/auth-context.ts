@@ -51,6 +51,15 @@ export interface AuthContext {
   readonly membershipId: MembershipId;
   readonly permissions: ReadonlySet<Permission>;
   readonly scope: Scope;
+  /**
+   * The role codes granted to this membership — 'Guardian', 'ClassTeacher',
+   * and so on. Not a permission set: `Librarian` and `Guardian` currently hold
+   * the identical base permission (`student.read`), and only the ROLE tells
+   * them apart for {@link isHouseholdOnly}. There is no role-authoring
+   * endpoint yet, so a code here is always one of the fixed system codes in
+   * `RoleCode` — revisit this comment the day a school can name its own roles.
+   */
+  readonly roleCodes: readonly string[];
 
   readonly locale: 'en' | 'bn';
   readonly requestId: string;
@@ -124,6 +133,30 @@ export function can(ctx: AuthContext, permission: Permission, target?: ScopeTarg
   } catch {
     return false;
   }
+}
+
+/**
+ * True for a Guardian or Student membership — a household account, never a
+ * member of staff.
+ *
+ * Why this exists: `Guardian` is granted `student.read` (§9.2) so the
+ * guardian-facing use cases can share the permission key with staff ones, on
+ * the assumption those use cases scope by RELATIONSHIP rather than by Scope.
+ * That assumption only holds where every caller respects it. The (staff)
+ * surface's own pages do not — `listStudents`/`getStudent` answer for any
+ * student in the tenant to anyone holding `student.read`, and `Librarian`
+ * holds exactly that same permission with no more. A permission check alone
+ * therefore cannot tell a librarian from a guardian; only the role can. Every
+ * staff-surface page calls this before rendering anything and redirects a
+ * household session to the guardian surface instead.
+ *
+ * `[].every(...)` is vacuously true, so a membership holding NO role at all is
+ * also treated as household — the safe direction, since no role means no
+ * proven staff duty either.
+ */
+const HOUSEHOLD_ROLES = new Set(['Guardian', 'Student']);
+export function isHouseholdOnly(ctx: AuthContext): boolean {
+  return ctx.roleCodes.every((code) => HOUSEHOLD_ROLES.has(code));
 }
 
 /**
