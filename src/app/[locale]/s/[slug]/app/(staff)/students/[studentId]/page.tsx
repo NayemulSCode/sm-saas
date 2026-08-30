@@ -13,7 +13,7 @@ import { resolveAuthContext, tokenGenerator } from '../../../../../../../../modu
 import { getStudent } from '../../../../../../../../modules/directory/index';
 import type { StudentId } from '../../../../../../../../shared/ids';
 import { readSessionToken } from '../../../../../../../api/_lib/session-cookie';
-import { can } from '../../../../../../../../shared/auth-context';
+import { can, isHouseholdOnly } from '../../../../../../../../shared/auth-context';
 import { WithdrawButton } from './WithdrawButton';
 import { Guardians, type GuardianRow } from './Guardians';
 import { EditDetails, type EditableStudent } from './EditDetails';
@@ -61,6 +61,15 @@ export default async function StudentPage({
 
   const ctx = await resolveAuthContext(token, { tokens: tokenGenerator });
   if (!ctx.ok) redirect(`${base}/login`);
+
+  /*
+   * A household session (Guardian or Student) must never reach a staff page,
+   * however it got here — a bookmark, a stale redirect target, a link pasted
+   * into a chat. `Librarian` holds the same base permission Guardian does
+   * (`student.read`), so a permission check alone cannot tell them apart; only
+   * the role can (`isHouseholdOnly`, shared/auth-context.ts).
+   */
+  if (isHouseholdOnly(ctx.value)) redirect(`${base}/children`);
 
   const result = await getStudent(ctx.value, studentId as StudentId);
   // A student in another school is absent, not forbidden — RLS makes the row

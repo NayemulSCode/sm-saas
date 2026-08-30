@@ -1528,3 +1528,173 @@ describe('accepting an invite', () => {
     expect(res.status, JSON.stringify(res.json)).toBe(200);
   }, 30_000);
 });
+
+describe('the household surface', () => {
+  const tenantHost = `api-${STAMP}.localhost:3125`;
+  let guardianCookie: string;
+  let childId: string;
+  let otherChildId: string;
+
+  /*
+   * A page fetch that does NOT follow redirects and DOES expose headers — the
+   * shared `page()` helpers in other describe blocks return only
+   * `{ status, html }`, which is enough to prove a page renders but not enough
+   * to read a `Location` header off a redirect. This is that helper, with an
+   * explicit cookie parameter rather than the shared module-level one, because
+   * this describe block runs as a SECOND identity alongside the Principal the
+   * rest of the file is signed in as.
+   */
+  const pageAs = (
+    path: string,
+    cookieHeader: string,
+  ): Promise<{ status: number; html: string; location: string | undefined }> =>
+    new Promise((resolve, reject) => {
+      const r = httpRequest(
+        { host: '127.0.0.1', port: 3125, path, headers: { host: tenantHost, cookie: cookieHeader } },
+        (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (c: string) => (body += c));
+          res.on('end', () =>
+            resolve({
+              status: res.statusCode ?? 0,
+              html: body,
+              location: res.headers.location,
+            }),
+          );
+        },
+      );
+      r.on('error', reject);
+      r.end();
+    });
+
+  it('onboards a guardian and links a child, using the existing staff-invite path', async () => {
+    /*
+     * There is no dedicated "invite a guardian" endpoint yet — `student.merge`
+     * and the rest of the household-facing use cases are new, but ONBOARDING
+     * one is not built (see the PR description). `staff/invites` is generic
+     * underneath its name: it mints an account, a credential and a membership
+     * for ANY person and ANY roles, regardless of what the route is called.
+     * Reusing it here is deliberate, not a workaround — it is the same
+     * mechanism `grantRole.integration.test.ts` uses to onboard a household
+     * account for testing, and it is real production code, not a stub.
+     */
+    const invite = await post('/api/v1/staff/invites', {
+      person: { nameBn: 'অভিভাবক পরীক্ষা', nameEn: 'Guardian Test' },
+      identifier: `guardian-${STAMP}@api.example.bd`,
+    });
+    expect(invite.status, JSON.stringify(invite.json)).toBe(201);
+    const { membershipId, inviteToken } = data<{ membershipId: string; inviteToken: string }>(
+      invite.json,
+    );
+
+    const roles = data<Array<{ id: string; code: string }>>((await get('/api/v1/roles')).json);
+    const guardianRoleId = roles.find((r) => r.code === 'Guardian')!.id;
+
+    const granted = await post(`/api/v1/memberships/${membershipId}/roles`, {
+      roleId: guardianRoleId,
+      reason: 'onboarding for the household-surface test',
+    });
+    expect(granted.status, JSON.stringify(granted.json)).toBe(201);
+
+    const accept = await fetch(`${server.url}/api/v1/auth/invite/accept`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: inviteToken, password: 'guardian-password-1' }),
+    });
+    expect(accept.status).toBe(200);
+    const setCookie = accept.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('HttpOnly');
+    guardianCookie = setCookie.split(';')[0]!;
+
+    const members = data<Array<{ membershipId: string; personId: string }>>(
+      (await get('/api/v1/members')).json,
+    );
+    const guardianPersonId = members.find((m) => m.membershipId === membershipId)!.personId;
+
+    const admitted = await post('/api/v1/students', {
+      schoolId,
+      sectionId: sectionA,
+      academicYearId: nextYearId,
+      nameBn: 'অভিভাবকের সন্তান',
+      nameEn: "Guardian's Child",
+      rollNo: 90,
+    });
+    expect(admitted.status, JSON.stringify(admitted.json)).toBe(201);
+    childId = data<{ studentId: string }>(admitted.json).studentId;
+
+    const linked = await post(`/api/v1/students/${childId}/guardians`, {
+      guardianPersonId,
+      relationship: 'mother',
+      isBillingGuardian: true,
+      isPrimaryContact: true,
+    });
+    expect(linked.status, JSON.stringify(linked.json)).toBe(201);
+
+    // A SECOND child, admitted the same way but never linked to this
+    // guardian — the negative case every isolation test needs.
+    const other = await post('/api/v1/students', {
+      schoolId,
+      sectionId: sectionA,
+      academicYearId: nextYearId,
+      nameBn: 'অন্য শিক্ষার্থী',
+      nameEn: 'Someone Else',
+      rollNo: 91,
+    });
+    expect(other.status).toBe(201);
+    otherChildId = data<{ studentId: string }>(other.json).studentId;
+  }, 120_000);
+
+  it("returns only the caller's own child, over the API", async () => {
+    // Plain fetch, no tenant Host header: API routes are never rewritten by
+    // middleware and resolve the tenant from the session, not the hostname.
+    const res = await fetch(`${server.url}/api/v1/guardian/children`, {
+      headers: { cookie: guardianCookie },
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: Array<{ studentId: string; nameBn: string }> };
+
+    expect(json.data.map((c) => c.studentId)).toEqual([childId]);
+    expect(json.data.some((c) => c.studentId === otherChildId)).toBe(false);
+    expect(json.data[0]?.nameBn).toBe('অভিভাবকের সন্তান');
+  }, 30_000);
+
+  it('is bounced away from the staff dashboard, never sees the roster', async () => {
+    /*
+     * The one test that pins the actual gap this closes: `Guardian` holds the
+     * SAME base permission `Librarian` does, `student.read`, so a permission
+     * check alone cannot stop this. Only the role can — `isHouseholdOnly`.
+     * A permissive redirect status set, matching the existing
+     * unauthenticated-visitor test: Next's `redirect()` is documented as 307
+     * but asserting the family of codes is what actually matters here.
+     */
+    const res = await pageAs('/app/dashboard', guardianCookie);
+    expect([301, 302, 303, 307, 308]).toContain(res.status);
+    expect(res.location, 'must redirect to the household surface').toContain('/app/children');
+
+    // And the roster must never have been in the body of that response either.
+    expect(res.html).not.toContain('Someone Else');
+  }, 30_000);
+
+  it('renders the children page with the linked child, and nobody else', async () => {
+    const res = await pageAs('/bn/app/children', guardianCookie);
+    expect(res.status, res.html.slice(0, 300)).toBe(200);
+
+    expect(res.html).toContain('My children');
+    expect(res.html).toContain('অভিভাবকের সন্তান');
+    expect(res.html).toContain('Mother');
+    // The other child, admitted in the same section, must not leak in here.
+    expect(res.html).not.toContain('Someone Else');
+    expect(res.html).not.toContain('অন্য শিক্ষার্থী');
+  }, 30_000);
+
+  it('is bounced away from every other staff page too', async () => {
+    for (const path of ['/app/structure', '/app/staff', '/app/promotions', '/app/duplicates']) {
+      const res = await pageAs(path, guardianCookie);
+      expect([301, 302, 303, 307, 308], `${path} must redirect a household session`).toContain(
+        res.status,
+      );
+      expect(res.location).toContain('/app/children');
+    }
+  }, 60_000);
+});

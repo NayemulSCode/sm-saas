@@ -86,6 +86,9 @@ export async function resolveAuthContext(
     // must not have its scope counted ten times.
     const scopeByRole = new Map(grants.map((g) => [g.roleCode, g.scope]));
     const scope = mergeScopes([...scopeByRole.values()]);
+    // Same de-duplication, kept for `isHouseholdOnly` — a role holding two
+    // permissions must not count as two roles.
+    const roleCodes = [...scopeByRole.keys()];
 
     if (
       shouldTouchLastSeen(
@@ -112,6 +115,7 @@ export async function resolveAuthContext(
       membershipId: membership.membershipId,
       permissions,
       scope,
+      roleCodes,
       locale: 'bn',
       requestId: deps.requestId ?? 'unknown',
       // Invariant 14: a suspended tenant resolves but cannot write.
