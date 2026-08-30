@@ -83,3 +83,23 @@ export const zStudentStatus = z.enum([
 export const zTime = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'structure.error.invalidShiftTimes');
+
+/**
+ * Money on the wire: minor units, as a STRING. A JSON number would lose
+ * precision on a large taka amount and reopen exactly the float bug
+ * invariant 2 exists to close. Same shape `Money.toJSON`/`fromJSON`
+ * (`src/shared/money.ts`) use — this is the shape-check at the transport
+ * edge; parsing into a `Money` happens in the use case, same division of
+ * labour as `zLocalDate`.
+ */
+export const zMoney = z.string().regex(/^-?\d+$/, 'common.error.invalidMoney');
+
+export const zFeeFrequency = z.enum(['one_time', 'monthly', 'term', 'annual']);
+export const zPaymentChannel = z.enum(['cash', 'bank', 'cheque', 'mfs', 'online']);
+export const zAllocationMode = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('auto') }),
+  z.object({
+    mode: z.literal('manual'),
+    lines: z.array(z.object({ invoiceLineId: zUlid(), amountMinor: zMoney })).min(1),
+  }),
+]);

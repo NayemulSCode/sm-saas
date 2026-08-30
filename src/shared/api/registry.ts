@@ -51,6 +51,13 @@ import {
   MergePersonsSchema,
   UnmergePersonsSchema,
 } from '../../modules/directory/application/dto';
+import {
+  CreateFeeHeadSchema,
+  CreateFeeStructureSchema,
+  GenerateInvoicesSchema,
+  RecordPaymentSchema,
+  ReversePaymentSchema,
+} from '../../modules/finance/application/dto';
 
 export interface QueryParam {
   name: string;
@@ -691,5 +698,118 @@ export const ENDPOINTS: Endpoint[] = [
     description: 'Signature-verified per provider. Not part of the tenant API.',
     permission: null,
     successStatus: 200,
+  },
+
+  // ── Finance (§13, Phase 3b first slice) ──────────────────────────────────
+
+  {
+    method: 'GET',
+    path: '/api/v1/fee-heads',
+    tag: 'Finance',
+    summary: 'List fee heads',
+    permission: 'fee.read',
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/fee-heads',
+    tag: 'Finance',
+    summary: 'Define a fee head',
+    permission: 'fee.structure.manage',
+    body: CreateFeeHeadSchema,
+    successStatus: 201,
+    failures: [
+      { status: 409, code: 'CODE_TAKEN', when: 'A fee head with that code already exists at this school.' },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/fee-structures',
+    tag: 'Finance',
+    summary: 'List fee structures for a year',
+    permission: 'fee.read',
+    query: [{ name: 'academicYearId', description: 'Required.' }],
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/fee-structures',
+    tag: 'Finance',
+    summary: 'Price a fee head for a class or a section',
+    permission: 'fee.structure.manage',
+    body: CreateFeeStructureSchema,
+    successStatus: 201,
+    failures: [
+      {
+        status: 409,
+        code: 'SCOPE_ALREADY_DEFINED',
+        when: 'That fee head already has a price for this exact class or section.',
+      },
+    ],
+    notes: ['Exactly one of `classLevelId`/`sectionId` — never both, never neither.'],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/invoices/generate',
+    tag: 'Finance',
+    summary: 'Generate invoices for a period',
+    permission: 'fee.structure.manage',
+    body: GenerateInvoicesSchema,
+    successStatus: 200,
+    notes: [
+      'Idempotent: a repeat run for the same (student, year, period) resolves to the same invoice and never duplicates a line — a unique index is the guard, not job bookkeeping.',
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/students/{studentId}/outstanding',
+    tag: 'Finance',
+    summary: "A student's outstanding fee lines",
+    permission: 'fee.read',
+    successStatus: 200,
+    returns: 'Aged outstanding lines, oldest due date first — what a collection screen and payment allocation both read.',
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/payments',
+    tag: 'Finance',
+    summary: 'Record a payment',
+    permission: 'fee.collect',
+    body: RecordPaymentSchema,
+    successStatus: 201,
+    failures: [
+      {
+        status: 422,
+        code: 'ALLOCATION_EXCEEDS_OUTSTANDING',
+        when: 'The amount, or a manual line within it, is more than what is actually owed.',
+      },
+      { status: 422, code: 'ALLOCATION_MISMATCH', when: 'A manual allocation does not sum to the payment amount.' },
+      { status: 422, code: 'UNKNOWN_LINE', when: 'A manual allocation names a line the student does not have.' },
+      {
+        status: 403,
+        code: 'BACKDATE_NOT_PERMITTED',
+        when: '`collectedAt` is before today and the caller lacks `fee.backdate`.',
+      },
+    ],
+    notes: [
+      '**Idempotency-Key required.** A retried request with the same `idempotencyKey` replays the original receipt rather than issuing a second one.',
+      'The receipt number is server-issued, gapless per school per fiscal year — never predicted by the client.',
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/payments/{paymentId}/reverse',
+    tag: 'Finance',
+    summary: 'Reverse a payment (refund)',
+    permission: 'fee.refund',
+    body: ReversePaymentSchema,
+    successStatus: 200,
+    failures: [
+      { status: 404, code: 'PAYMENT_NOT_FOUND', when: 'Not on file at this school.' },
+      { status: 409, code: 'ALREADY_REVERSED', when: 'That payment has already been reversed.' },
+    ],
+    notes: [
+      'A reversing row, never a delete — the original receipt number stays consumed. The reversal draws its own receipt from the same gapless sequence.',
+    ],
   },
 ];

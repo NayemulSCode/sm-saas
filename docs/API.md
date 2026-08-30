@@ -117,6 +117,19 @@ endpoints. It is never in a response body and cannot be read from script.
 | `GET` | [`/api/public/v1/health`](#get-api-public-v1-health) | — |
 | `POST` | [`/api/hooks/{provider}`](#post-api-hooks-provider) | — |
 
+### Finance
+
+| | Endpoint | Permission |
+|---|---|---|
+| `GET` | [`/api/v1/fee-heads`](#get-api-v1-fee-heads) | `fee.read` |
+| `POST` | [`/api/v1/fee-heads`](#post-api-v1-fee-heads) | `fee.structure.manage` |
+| `GET` | [`/api/v1/fee-structures`](#get-api-v1-fee-structures) | `fee.read` |
+| `POST` | [`/api/v1/fee-structures`](#post-api-v1-fee-structures) | `fee.structure.manage` |
+| `POST` | [`/api/v1/invoices/generate`](#post-api-v1-invoices-generate) | `fee.structure.manage` |
+| `GET` | [`/api/v1/students/{studentId}/outstanding`](#get-api-v1-students-studentId-outstanding) | `fee.read` |
+| `POST` | [`/api/v1/payments`](#post-api-v1-payments) | `fee.collect` |
+| `POST` | [`/api/v1/payments/{paymentId}/reverse`](#post-api-v1-payments-paymentId-reverse) | `fee.refund` |
+
 ## Authentication
 
 ### `POST /api/v1/auth/otp/request`
@@ -1789,4 +1802,371 @@ Signature-verified per provider. Not part of the tenant API.
 _No authentication._
 
 **200** — Success.
+
+## Finance
+
+### `GET /api/v1/fee-heads`
+
+**List fee heads**
+
+_Permission: `fee.read`_
+
+**200** — Success.
+
+### `POST /api/v1/fee-heads`
+
+**Define a fee head**
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "nameBn": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "nameEn": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "one_time",
+        "monthly",
+        "term",
+        "annual"
+      ]
+    },
+    "isRefundable": {
+      "default": false,
+      "type": "boolean"
+    },
+    "sequence": {
+      "default": 0,
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "code",
+    "nameBn",
+    "nameEn",
+    "frequency"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 409 | `CODE_TAKEN` | A fee head with that code already exists at this school. |
+
+### `GET /api/v1/fee-structures`
+
+**List fee structures for a year**
+
+_Permission: `fee.read`_
+
+**Query**
+
+| Name | Meaning |
+|---|---|
+| `academicYearId` | Required. |
+
+**200** — Success.
+
+### `POST /api/v1/fee-structures`
+
+**Price a fee head for a class or a section**
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "academicYearId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "feeHeadId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "classLevelId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "sectionId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "amountMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "dueDay": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31
+    }
+  },
+  "required": [
+    "academicYearId",
+    "feeHeadId",
+    "amountMinor"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 409 | `SCOPE_ALREADY_DEFINED` | That fee head already has a price for this exact class or section. |
+
+> Exactly one of `classLevelId`/`sectionId` — never both, never neither.
+
+### `POST /api/v1/invoices/generate`
+
+**Generate invoices for a period**
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schoolId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "academicYearId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "periodLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "issuedOn": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "dueDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "schoolId",
+    "academicYearId",
+    "periodLabel",
+    "issuedOn",
+    "dueDate"
+  ]
+}
+```
+
+**200** — Success.
+
+> Idempotent: a repeat run for the same (student, year, period) resolves to the same invoice and never duplicates a line — a unique index is the guard, not job bookkeeping.
+
+### `GET /api/v1/students/{studentId}/outstanding`
+
+**A student's outstanding fee lines**
+
+_Permission: `fee.read`_
+
+**200** — Aged outstanding lines, oldest due date first — what a collection screen and payment allocation both read.
+
+### `POST /api/v1/payments`
+
+**Record a payment**
+
+_Permission: `fee.collect`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schoolId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "studentId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "amountMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "cash",
+        "bank",
+        "cheque",
+        "mfs",
+        "online"
+      ]
+    },
+    "channelRef": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "collectedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "allocation": {
+      "default": {
+        "mode": "auto"
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "auto"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "manual"
+            },
+            "lines": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "invoiceLineId": {
+                    "type": "string",
+                    "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+                  },
+                  "amountMinor": {
+                    "type": "string",
+                    "pattern": "^-?\\d+$"
+                  }
+                },
+                "required": [
+                  "invoiceLineId",
+                  "amountMinor"
+                ]
+              }
+            }
+          },
+          "required": [
+            "mode",
+            "lines"
+          ]
+        }
+      ]
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "schoolId",
+    "studentId",
+    "amountMinor",
+    "channel",
+    "collectedAt",
+    "idempotencyKey"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 422 | `ALLOCATION_EXCEEDS_OUTSTANDING` | The amount, or a manual line within it, is more than what is actually owed. |
+| 422 | `ALLOCATION_MISMATCH` | A manual allocation does not sum to the payment amount. |
+| 422 | `UNKNOWN_LINE` | A manual allocation names a line the student does not have. |
+| 403 | `BACKDATE_NOT_PERMITTED` | `collectedAt` is before today and the caller lacks `fee.backdate`. |
+
+> **Idempotency-Key required.** A retried request with the same `idempotencyKey` replays the original receipt rather than issuing a second one.
+
+> The receipt number is server-issued, gapless per school per fiscal year — never predicted by the client.
+
+### `POST /api/v1/payments/{paymentId}/reverse`
+
+**Reverse a payment (refund)**
+
+_Permission: `fee.refund`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 280
+    }
+  },
+  "required": [
+    "reason"
+  ]
+}
+```
+
+**200** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `PAYMENT_NOT_FOUND` | Not on file at this school. |
+| 409 | `ALREADY_REVERSED` | That payment has already been reversed. |
+
+> A reversing row, never a delete — the original receipt number stays consumed. The reversal draws its own receipt from the same gapless sequence.
 

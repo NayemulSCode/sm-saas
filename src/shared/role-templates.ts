@@ -106,6 +106,9 @@ export const LIVE_IN_3A = new Set<Permission>([
   ...MODULES.structure,
   ...MODULES.directory,
   ...MODULES.data,
+  // Phase 3b's first slice ships fee heads, structures, invoicing and
+  // payments — the filter this comment always said would relax first.
+  ...MODULES.finance,
 ]);
 
 /** Every tenant-level permission — the operator console is not a tenant role. */

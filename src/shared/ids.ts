@@ -52,6 +52,12 @@ export type SectionId = Id<'section'>;
 export type SubjectId = Id<'subject'>;
 export type MembershipRoleId = Id<'membershipRole'>;
 export type StaffInviteId = Id<'staffInvite'>;
+export type FeeHeadId = Id<'feeHead'>;
+export type FeeStructureId = Id<'feeStructure'>;
+export type InvoiceId = Id<'invoice'>;
+export type InvoiceLineId = Id<'invoiceLine'>;
+export type PaymentId = Id<'payment'>;
+export type PaymentAllocationId = Id<'paymentAllocation'>;
 
 export type IdError = { code: 'INVALID_ULID'; input: string };
 

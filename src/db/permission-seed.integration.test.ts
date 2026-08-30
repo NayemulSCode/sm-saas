@@ -84,13 +84,15 @@ describe('the seeded role templates', () => {
     expect(rows[0]?.permissions).toContain('membership.manage');
   });
 
-  // §9.6 — modules that do not ship in 3a are declared but not granted.
+  // §9.6 — modules that do not ship yet are declared but not granted.
+  // `fee.` moved out of this list when Phase 3b's first slice shipped
+  // finance — LIVE_IN_3A is, per its own comment, "the single thing that
+  // relaxes" when a phase ships, and this is that relaxation.
   it('does not grant permissions for modules that do not exist yet', async () => {
     const { rows } = await admin.query<{ code: string; permissions: string[] }>(
       'SELECT code, permissions FROM role_template',
     );
     for (const row of rows) {
-      expect(row.permissions.filter((p) => p.startsWith('fee.')), row.code).toEqual([]);
       expect(row.permissions.filter((p) => p.startsWith('mark.')), row.code).toEqual([]);
       expect(row.permissions.filter((p) => p.startsWith('platform.')), row.code).toEqual([]);
     }
