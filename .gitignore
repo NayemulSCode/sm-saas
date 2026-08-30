@@ -40,6 +40,12 @@ credentials.json
 /blob-report
 /.playwright
 
+# `drizzle-kit check` scratch state. Migrations here are hand-written SQL
+# (every migration file says so), never `drizzle-kit generate` — this journal
+# tracks generated migrations, so it is always an empty placeholder for us,
+# and committing it would misleadingly suggest otherwise.
+src/db/migrations/meta/
+
 # Claude Code: share the team-wide settings and the dev-server launch config,
 # keep personal overrides and agent worktrees (full nested checkouts) out.
 # Project context lives in CLAUDE.md at the repository root and IS committed —

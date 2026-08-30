@@ -5,9 +5,16 @@ anything; it is the short version of decisions that are expensive to rediscover.
 
 ## Where you are
 
-**Phase 1 complete. Phase 2 complete (2A, 2B, 2C).** There is deliberately **no application
-code** in this repository yet. Phase 1 produced the architecture, Phase 2 the
-engineering specification, Phase 3 the implementation.
+**Phase 1 complete. Phase 2 complete (2A, 2B, 2C). Phase 3a complete**: tenancy,
+RLS, identity, structure, directory (admissions, promotion, merge), staff and
+guardian UI, API docs generated from the Zod schemas. **Phase 3b started** —
+finance is the beachhead module (§13). What exists so far is schema only:
+migration 0014 (`fee_head` through `payment_allocation`, `idempotency_key`
+filling a gap left in the original shared kernel) and the pure
+`allocatePayment` domain function (`modules/finance/`). No repository, use
+case, API route or UI yet — invoicing and payment collection are still ahead.
+Phase 1 produced the architecture, Phase 2 the engineering specification,
+Phase 3 is the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
 `pnpm verify` (typecheck + lint + tests) and keep it green.
