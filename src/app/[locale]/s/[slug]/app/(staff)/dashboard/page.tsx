@@ -10,7 +10,8 @@
  * It therefore ships **no client JavaScript at all**. Search is a plain form
  * that navigates, and paging is a link. That is not a limitation to fix later:
  * a list that works before hydration is a list that works on the handset the
- * office actually has.
+ * office actually has. Everything below is `components/ui` + `components/patterns`
+ * markup — presentation only, no behaviour moved.
  */
 
 import Link from 'next/link';
@@ -28,6 +29,20 @@ import { zUlid } from '../../../../../../../shared/api/primitives';
 import { readSessionToken } from '../../../../../../api/_lib/session-cookie';
 import { can } from '../../../../../../../shared/auth-context';
 import { appPath } from '../../../../../../../shared/paths';
+import {
+  Card,
+  CardContent,
+  Badge,
+  buttonVariants,
+  Select,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '../../../../../../../components/ui';
+import { EmptyState, SectionPicker } from '../../../../../../../components/patterns';
 
 export const dynamic = 'force-dynamic';
 
@@ -143,27 +158,22 @@ export default async function DashboardPage({
     <main className="mx-auto max-w-4xl p-6">
       {/* Plain links, so the whole app works without JavaScript and every
           screen is a URL somebody can bookmark or send to a colleague. */}
-      <nav className="mb-6 flex gap-4 text-sm">
-        <Link href={`${base}/structure`} className="underline">
+      <nav className="mb-6 flex gap-5 border-b border-[var(--color-border)] pb-4 text-sm">
+        <Link href={`${base}/structure`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           Structure
         </Link>
-        <Link href={`${base}/staff`} className="underline">
+        <Link href={`${base}/staff`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           Staff
         </Link>
         {can(ctx.value, 'enrolment.promote') && (
-          <Link href={`${base}/promotions`} className="underline">
+          <Link href={`${base}/promotions`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
             Promotion
-          </Link>
-        )}
-        {can(ctx.value, 'student.merge') && (
-          <Link href={`${base}/duplicates`} className="underline">
-            Duplicates
           </Link>
         )}
       </nav>
 
       <header className="mb-6">
-        <h1 className="text-xl font-semibold">{school?.nameBn ?? 'School'}</h1>
+        <h1 className="font-serif text-2xl text-[var(--color-text)]">{school?.nameBn ?? 'School'}</h1>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
           {school?.nameEn}
           {currentYear ? ` · ${currentYear.name}` : ' · no academic year is open'}
@@ -178,8 +188,9 @@ export default async function DashboardPage({
       {ctx.value.readOnly && (
         <p
           role="status"
-          className="mb-6 rounded border border-[var(--color-border)] px-3 py-2 text-sm"
+          className="mb-6 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-warning)] bg-[color-mix(in_srgb,var(--color-warning)_12%,var(--color-surface-raised))] px-3 py-2 text-sm text-[var(--color-text)]"
         >
+          <Badge tone="warning">Read-only</Badge>
           This school is read-only. Records can be viewed but not changed.
         </p>
       )}
@@ -198,19 +209,15 @@ export default async function DashboardPage({
       ) : (
         <section aria-labelledby="students">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="students" className="text-lg font-semibold">
+            <h2 id="students" className="text-lg font-semibold text-[var(--color-text)]">
               Students
             </h2>
 
             {can(ctx.value, 'student.write') && (
-              <Link
-                href={`${base}/students/new`}
-                className="rounded bg-[var(--brand-primary)] px-4 py-2 text-sm text-[var(--brand-on-primary)]"
-              >
+              <Link href={`${base}/students/new`} className={buttonVariants({ size: 'sm' })}>
                 Admit a student
               </Link>
             )}
-
           </div>
 
           {/*
@@ -226,7 +233,7 @@ export default async function DashboardPage({
             */}
           <form
             method="get"
-            className="mb-4 grid gap-3 rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3 sm:grid-cols-4"
+            className="mb-4 grid gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3 sm:grid-cols-4"
           >
             <label htmlFor="search" className="sr-only">
               Search by name or student code
@@ -236,52 +243,34 @@ export default async function DashboardPage({
               name="search"
               defaultValue={search ?? ''}
               placeholder="Name or code"
-              className="min-h-11 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-base"
+              className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]"
             />
 
             <label htmlFor="sectionId" className="sr-only">
               Section
             </label>
-            <select
-              id="sectionId"
-              name="sectionId"
+            <SectionPicker
+              sections={sectionOptions}
               defaultValue={filters.sectionId ?? ''}
-              className="min-h-11 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
-            >
-              <option value="">Every section</option>
-              {sectionOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              emptyOptionLabel="Every section"
+            />
 
             <label htmlFor="status" className="sr-only">
               Status
             </label>
-            <select
-              id="status"
-              name="status"
-              defaultValue={filters.status ?? ''}
-              className="min-h-11 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
-            >
+            <Select id="status" name="status" defaultValue={filters.status ?? ''}>
               <option value="">Every status</option>
               {STUDENT_STATUSES.map((st) => (
                 <option key={st} value={st}>
                   {st.replace('_', ' ')}
                 </option>
               ))}
-            </select>
+            </Select>
 
             <label htmlFor="academicYearId" className="sr-only">
               Academic year
             </label>
-            <select
-              id="academicYearId"
-              name="academicYearId"
-              defaultValue={filters.academicYearId ?? ''}
-              className="min-h-11 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3"
-            >
+            <Select id="academicYearId" name="academicYearId" defaultValue={filters.academicYearId ?? ''}>
               {/*
                 * "Latest enrolment" rather than "every year": the list shows ONE
                 * class and roll per student, so with no year named that is
@@ -294,17 +283,14 @@ export default async function DashboardPage({
                   {o.label}
                 </option>
               ))}
-            </select>
+            </Select>
 
-            <div className="flex gap-3 sm:col-span-4">
-              <button
-                type="submit"
-                className="min-h-11 rounded border border-[var(--color-border)] px-4"
-              >
+            <div className="flex items-center gap-3 sm:col-span-4">
+              <button type="submit" className={buttonVariants({ variant: 'secondary', size: 'md' })}>
                 Apply
               </button>
               {filtered && (
-                <Link href="?" className="flex min-h-11 items-center px-2 text-sm underline">
+                <Link href="?" className="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text)]">
                   Clear filters
                 </Link>
               )}
@@ -312,14 +298,10 @@ export default async function DashboardPage({
           </form>
 
           {page.items.length === 0 ? (
-            <p className="rounded border border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-text-muted)]">
-              {/* Saying that filters are the reason matters more than it looks.
-                  An empty list under a filter set three clicks ago reads as
-                  missing data, and the next call is "the students are gone". */}
-              {filtered
-                ? 'Nobody matches these filters.'
-                : 'No students yet. Admissions will appear here.'}
-            </p>
+            <EmptyState
+              title={filtered ? 'Nobody matches these filters.' : 'No students yet.'}
+              description={filtered ? undefined : 'Admissions will appear here.'}
+            />
           ) : (
             <StudentTable rows={page.items} base={base} />
           )}
@@ -333,7 +315,7 @@ export default async function DashboardPage({
                   ...filters,
                   cursor: page.nextCursor,
                 }).toString()}`}
-                className="underline"
+                className={buttonVariants({ variant: 'ghost', size: 'sm' })}
               >
                 Next 25
               </Link>
@@ -347,60 +329,48 @@ export default async function DashboardPage({
 
 function Stat({ label, value }: { label: string; value: number }): React.JSX.Element {
   return (
-    <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
-      <p className="text-2xl font-semibold">{value}</p>
-      <p className="text-sm text-[var(--color-text-muted)]">{label}</p>
-    </div>
+    <Card>
+      <CardContent className="pt-5">
+        <p className="text-2xl font-semibold text-[var(--color-text)]">{value}</p>
+        <p className="text-sm text-[var(--color-text-muted)]">{label}</p>
+      </CardContent>
+    </Card>
   );
 }
 
 function StudentTable({ rows, base }: { rows: StudentRow[]; base: string }): React.JSX.Element {
   return (
-    // The table scrolls inside its own container; the page never scrolls
-    // sideways on a phone.
-    <div className="overflow-x-auto rounded border border-[var(--color-border)]">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-[var(--color-surface)]">
-          <tr>
-            <th scope="col" className="px-3 py-2 font-medium">
-              Name
-            </th>
-            <th scope="col" className="px-3 py-2 font-medium">
-              Code
-            </th>
-            <th scope="col" className="px-3 py-2 font-medium">
-              Class
-            </th>
-            <th scope="col" className="px-3 py-2 font-medium">
-              Roll
-            </th>
-            <th scope="col" className="px-3 py-2 font-medium">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-[var(--color-border)]">
-              <td className="px-3 py-2">
-                <Link href={`${base}/students/${r.id}`} className="underline">
-                  {/* Bangla first: it is the name the school uses day to day,
-                      and neither is a translation of the other (ADR-0019). */}
-                  {r.nameBn}
-                </Link>
-                <span className="block text-[var(--color-text-muted)]">{r.nameEn}</span>
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{r.studentCode}</td>
-              <td className="px-3 py-2">
-                {r.classNameEn ?? '—'}
-                {r.sectionNameEn ? ` ${r.sectionNameEn}` : ''}
-              </td>
-              <td className="px-3 py-2">{r.rollNo ?? '—'}</td>
-              <td className="px-3 py-2">{r.status.replace('_', ' ')}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Code</TableHead>
+          <TableHead>Class</TableHead>
+          <TableHead>Roll</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r) => (
+          <TableRow key={r.id}>
+            <TableCell>
+              <Link href={`${base}/students/${r.id}`} className="text-[var(--brand-primary)] underline">
+                {/* Bangla first: it is the name the school uses day to day,
+                    and neither is a translation of the other (ADR-0019). */}
+                {r.nameBn}
+              </Link>
+              <span className="block text-[var(--color-text-muted)]">{r.nameEn}</span>
+            </TableCell>
+            <TableCell className="font-mono text-xs">{r.studentCode}</TableCell>
+            <TableCell>
+              {r.classNameEn ?? '—'}
+              {r.sectionNameEn ? ` ${r.sectionNameEn}` : ''}
+            </TableCell>
+            <TableCell>{r.rollNo ?? '—'}</TableCell>
+            <TableCell>{r.status.replace('_', ' ')}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
