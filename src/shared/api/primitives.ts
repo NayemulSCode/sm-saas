@@ -94,3 +94,4 @@ export const zTime = z
 export const zMoney = z.string().regex(/^-?\d+$/, 'common.error.invalidAmount');
 
 export const zFeeFrequency = z.enum(['one_time', 'monthly', 'term', 'annual']);
+export const zDiscountKind = z.enum(['sibling', 'staff_child', 'merit', 'need', 'other']);

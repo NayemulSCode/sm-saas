@@ -1,11 +1,10 @@
 /**
  * The finance module's only importable surface (ADR-0001).
  *
- * §13.1 (fee definition) has its first use cases now: fee heads and fee
- * structures. Invoice generation, payment recording and receipt issuance are
- * still ahead — each is its own increment, for the reasons in this module's
- * PRs: real concurrency and idempotency concerns that deserve their own
- * build-then-verify-by-breaking pass rather than landing bundled together.
+ * §13.1 (fee definition) is complete: fee heads, fee structures, per-student
+ * fee assignments and discounts (with their approval workflow) all have real
+ * use cases now. Invoice generation is next — it is what actually reads all
+ * four. Payment recording and receipt issuance are still ahead after that.
  */
 
 export {
@@ -32,4 +31,28 @@ export {
   type FeeStructureRow,
 } from './application/feeStructures';
 
-export { CreateFeeHeadSchema, CreateFeeStructureSchema } from './application/dto';
+export {
+  createFeeAssignment,
+  listFeeAssignments,
+  FeeAssignmentErrors,
+  type CreateFeeAssignmentInput,
+  type FeeAssignmentRow,
+} from './application/feeAssignments';
+
+export {
+  createDiscount,
+  approveDiscount,
+  listDiscounts,
+  DiscountErrors,
+  type CreateDiscountInput,
+  type ApproveDiscountInput,
+  type DiscountRow,
+} from './application/discounts';
+
+export {
+  CreateFeeHeadSchema,
+  CreateFeeStructureSchema,
+  CreateFeeAssignmentSchema,
+  CreateDiscountSchema,
+  ApproveDiscountSchema,
+} from './application/dto';

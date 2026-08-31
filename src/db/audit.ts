@@ -126,6 +126,7 @@ export const REASON_REQUIRED: ReadonlySet<string> = new Set([
   'student.merged',
   'fee.waived',
   'fee.refunded',
+  'discount.approved',
   'result.published',
   'result.revised',
   'academicYear.closed',

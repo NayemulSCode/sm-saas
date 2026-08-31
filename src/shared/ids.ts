@@ -54,6 +54,8 @@ export type MembershipRoleId = Id<'membershipRole'>;
 export type StaffInviteId = Id<'staffInvite'>;
 export type FeeHeadId = Id<'feeHead'>;
 export type FeeStructureId = Id<'feeStructure'>;
+export type FeeAssignmentId = Id<'feeAssignment'>;
+export type DiscountId = Id<'discount'>;
 
 export type IdError = { code: 'INVALID_ULID'; input: string };
 
