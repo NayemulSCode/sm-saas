@@ -3,8 +3,8 @@
  *
  * §13.1 (fee definition) is complete: fee heads, fee structures, per-student
  * fee assignments and discounts (with their approval workflow) all have real
- * use cases now. Invoice generation is next — it is what actually reads all
- * four. Payment recording and receipt issuance are still ahead after that.
+ * use cases. §13.6 (invoice generation) reads all four now. Payment recording
+ * and receipt issuance are still ahead.
  */
 
 export {
@@ -14,6 +14,14 @@ export {
   type Allocation,
   type AllocationVerdict,
 } from './domain/rules/allocate';
+
+export {
+  priceStudentFees,
+  type StructureLine,
+  type AssignmentOverride,
+  type ApplicableDiscount,
+  type PricedHead,
+} from './domain/rules/price';
 
 export {
   createFeeHead,
@@ -50,9 +58,17 @@ export {
 } from './application/discounts';
 
 export {
+  generateInvoices,
+  InvoiceGenerationErrors,
+  type GenerateInvoicesInput,
+  type GenerateInvoicesResult,
+} from './application/generateInvoices';
+
+export {
   CreateFeeHeadSchema,
   CreateFeeStructureSchema,
   CreateFeeAssignmentSchema,
   CreateDiscountSchema,
   ApproveDiscountSchema,
+  GenerateInvoicesSchema,
 } from './application/dto';

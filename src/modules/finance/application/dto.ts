@@ -80,3 +80,15 @@ export const CreateDiscountSchema = z
 /** Dangerous: `fee.waive` is in `DANGEROUS_PERMISSIONS`, so this needs the
  *  longer, substantive reason — same bar as `CloseAcademicYearSchema`. */
 export const ApproveDiscountSchema = z.object({ reason: zReason });
+
+export const GenerateInvoicesSchema = z
+  .object({
+    academicYearId: zUlid(),
+    periodLabel: z.string().trim().min(1).max(20),
+    issuedOn: zLocalDate,
+    dueDate: zLocalDate,
+  })
+  .refine((v) => v.issuedOn <= v.dueDate, {
+    message: 'finance.error.invalidDates',
+    path: ['dueDate'],
+  });

@@ -5009,6 +5009,120 @@
         ]
       }
     },
+    "/api/v1/invoices/generate": {
+      "post": {
+        "tags": [
+          "Finance"
+        ],
+        "summary": "Generate invoices for a period",
+        "description": "Idempotent by construction (§13.6): running it twice for the same academic year and period adds nothing the second time. Combines `fee_structure ∪ fee_assignment` and applies approved discounts valid on `issuedOn`, for every active enrolment. Excludes withdrawn, alumni and (by default, pending real per-tenant configuration) on-leave students.\n\n**Permission:** `fee.structure.manage`",
+        "operationId": "post_api_v1_invoices_generate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "`{ studentsProcessed, invoicesCreated, invoicesReused, linesCreated }`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`INVALID_DATES` — `issuedOn`/`dueDate` malformed, or `dueDate` before `issuedOn`.\n\n`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`YEAR_NOT_FOUND` — No such academic year.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "academicYearId": {
+                    "type": "string",
+                    "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+                  },
+                  "periodLabel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20
+                  },
+                  "issuedOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "dueDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "academicYearId",
+                  "periodLabel",
+                  "issuedOn",
+                  "dueDate"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/health/live": {
       "get": {
         "tags": [

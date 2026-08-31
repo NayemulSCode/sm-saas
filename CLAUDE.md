@@ -7,14 +7,20 @@ anything; it is the short version of decisions that are expensive to rediscover.
 
 **Phase 1 complete. Phase 2 complete (2A, 2B, 2C). Phase 3a complete**: tenancy,
 RLS, identity, structure, directory (admissions, promotion, merge), staff and
-guardian UI, API docs generated from the Zod schemas. **Phase 3b started** —
-finance is the beachhead module (§13). What exists so far is schema only:
-migration 0014 (`fee_head` through `payment_allocation`, `idempotency_key`
-filling a gap left in the original shared kernel) and the pure
-`allocatePayment` domain function (`modules/finance/`). No repository, use
-case, API route or UI yet — invoicing and payment collection are still ahead.
-Phase 1 produced the architecture, Phase 2 the engineering specification,
-Phase 3 is the implementation.
+guardian UI, API docs generated from the Zod schemas. **Phase 3b in progress**
+— finance is the beachhead module (§13). Migration 0014 laid the schema
+(`fee_head` through `payment_allocation`, plus `idempotency_key` filling a gap
+left in the original shared kernel); 0015 added the partial unique index that
+makes `invoice` itself idempotent per (student, year, period), the guard §13.6
+assumes but 0014 never actually built. Fee definition is complete with real
+use cases and API routes — fee heads, fee structures, per-student fee
+assignments, discounts with their approval workflow — and `generateInvoices`
+(§13.6) now reads all four to write `invoice`/`invoice_line` rows, idempotently
+by construction. `allocatePayment` (the pure function payment recording will
+use) has existed since migration 0014's PR. Payment recording and receipt
+issuance — the gapless per-school-per-year sequence, `POST /payments` — are
+still ahead, and no finance UI exists yet. Phase 1 produced the architecture,
+Phase 2 the engineering specification, Phase 3 is the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
 `pnpm verify` (typecheck + lint + tests) and keep it green.

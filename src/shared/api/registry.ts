@@ -57,6 +57,7 @@ import {
   CreateFeeAssignmentSchema,
   CreateDiscountSchema,
   ApproveDiscountSchema,
+  GenerateInvoicesSchema,
 } from '../../modules/finance/application/dto';
 
 export interface QueryParam {
@@ -766,6 +767,22 @@ export const ENDPOINTS: Endpoint[] = [
     failures: [
       { status: 404, code: 'NOT_FOUND', when: 'No such discount.' },
       { status: 409, code: 'ALREADY_DECIDED', when: 'Already approved, rejected or revoked — approval is a one-way door.' },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/invoices/generate',
+    tag: 'Finance',
+    summary: 'Generate invoices for a period',
+    description:
+      'Idempotent by construction (§13.6): running it twice for the same academic year and period adds nothing the second time. Combines `fee_structure ∪ fee_assignment` and applies approved discounts valid on `issuedOn`, for every active enrolment. Excludes withdrawn, alumni and (by default, pending real per-tenant configuration) on-leave students.',
+    permission: 'fee.structure.manage',
+    body: GenerateInvoicesSchema,
+    successStatus: 200,
+    returns: '`{ studentsProcessed, invoicesCreated, invoicesReused, linesCreated }`.',
+    failures: [
+      { status: 404, code: 'YEAR_NOT_FOUND', when: 'No such academic year.' },
+      { status: 400, code: 'INVALID_DATES', when: '`issuedOn`/`dueDate` malformed, or `dueDate` before `issuedOn`.' },
     ],
   },
 
