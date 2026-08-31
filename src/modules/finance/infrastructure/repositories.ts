@@ -15,7 +15,7 @@
  * is not.
  */
 
-import { and, asc, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
 import type { Tx } from '../../../db/rls';
 import {
   discount,
@@ -24,8 +24,11 @@ import {
   feeStructure,
   invoice,
   invoiceLine,
+  payment,
+  paymentAllocation,
+  receiptSequence,
 } from '../../../db/schema/finance';
-import { academicYear, classLevel, section } from '../../../db/schema/structure';
+import { academicYear, classLevel, school, section } from '../../../db/schema/structure';
 import { student } from '../../../db/schema/directoryStudents';
 import { enrolment } from '../../../db/schema/directory';
 import { Ids } from '../../../shared/ids';
@@ -38,6 +41,8 @@ import type {
   FeeHeadId,
   FeeStructureId,
   InvoiceId,
+  InvoiceLineId,
+  PaymentId,
   PersonId,
   SchoolId,
   SectionId,
@@ -114,6 +119,17 @@ export interface ApprovedDiscountRecord {
   feeHeadId: FeeHeadId | null;
   valueMinor: bigint | null;
   percent: string | null;
+}
+
+/** One invoice_line a student still owes on. §13.3, §13.5. */
+export interface OutstandingLineRecord {
+  invoiceLineId: InvoiceLineId;
+  invoiceId: InvoiceId;
+  feeHeadId: FeeHeadId;
+  outstandingMinor: bigint;
+  dueDate: LocalDate;
+  /** `fee_head.sequence` — the tiebreaker `oldest_first` uses after `dueDate`. */
+  feeHeadSequence: number;
 }
 
 export const finance = {
@@ -689,5 +705,217 @@ export const finance = {
       .where(eq(invoice.id, invoiceId));
 
     return { totalMinor, discountMinor };
+  },
+
+  // ── payment recording reads and writes (§13.3, §13.4) ────────────────────
+
+  /** Which school a student belongs to right now, via their CURRENT-year
+   *  enrolment — same derivation `activeEnrolmentsFor` uses for invoice
+   *  generation. Also the school's own fiscal-year start month, since a
+   *  payment's fiscal year depends on it. */
+  async studentCurrentSchool(
+    tx: Tx,
+    studentId: StudentId,
+  ): Promise<{ schoolId: SchoolId; fiscalYearStartMonth: number } | undefined> {
+    const [row] = await tx
+      .select({ schoolId: school.id, fiscalYearStartMonth: school.fiscalYearStartMonth })
+      .from(enrolment)
+      .innerJoin(section, eq(section.id, enrolment.sectionId))
+      .innerJoin(classLevel, eq(classLevel.id, section.classLevelId))
+      .innerJoin(school, eq(school.id, classLevel.schoolId))
+      .innerJoin(
+        academicYear,
+        and(eq(academicYear.id, enrolment.academicYearId), eq(academicYear.isCurrent, true)),
+      )
+      .where(and(eq(enrolment.studentId, studentId), isNull(enrolment.deletedAt)))
+      .limit(1);
+    return row;
+  },
+
+  /**
+   * Every line this student still owes on, across every non-void,
+   * non-written-off invoice — `oldest_first` needs `dueDate` and
+   * `feeHeadSequence` to sort by (§13.5's own ordering table); `manual` needs
+   * the full set regardless, to validate against.
+   *
+   * The subtraction happens in JS, not SQL: the set is a handful of rows per
+   * student, and three plain bigint columns read out are simpler to reason
+   * about than a raw arithmetic expression inside the query.
+   */
+  async outstandingLinesFor(tx: Tx, studentId: StudentId): Promise<OutstandingLineRecord[]> {
+    const rows = await tx
+      .select({
+        invoiceLineId: invoiceLine.id,
+        invoiceId: invoiceLine.invoiceId,
+        feeHeadId: invoiceLine.feeHeadId,
+        amountMinor: invoiceLine.amountMinor,
+        discountMinor: invoiceLine.discountMinor,
+        paidMinor: invoiceLine.paidMinor,
+        dueDate: invoice.dueDate,
+        feeHeadSequence: feeHead.sequence,
+      })
+      .from(invoiceLine)
+      .innerJoin(invoice, eq(invoice.id, invoiceLine.invoiceId))
+      .innerJoin(feeHead, eq(feeHead.id, invoiceLine.feeHeadId))
+      .where(
+        and(
+          eq(invoice.studentId, studentId),
+          isNull(invoiceLine.deletedAt),
+          isNull(invoice.deletedAt),
+          notInArray(invoice.status, ['void', 'written_off']),
+        ),
+      );
+
+    return rows
+      .map((r) => ({
+        invoiceLineId: r.invoiceLineId,
+        invoiceId: r.invoiceId,
+        feeHeadId: r.feeHeadId,
+        outstandingMinor: r.amountMinor - r.discountMinor - r.paidMinor,
+        dueDate: r.dueDate,
+        feeHeadSequence: r.feeHeadSequence,
+      }))
+      .filter((r) => r.outstandingMinor > 0n);
+  },
+
+  /**
+   * The gapless counter. §13.4's own transaction sketch, verbatim: lock the
+   * row, read it, increment it — all before the payment that consumes the
+   * number exists, so a rollback (a later step in the same transaction
+   * failing) returns the counter with it. A `SEQUENCE` cannot do this; it does
+   * not roll back, which is exactly why `receipt_sequence` is a plain table.
+   *
+   * The seed insert handles a school's first receipt of a fiscal year — there
+   * is no row to lock yet, so one is created at `next_value = 1` first.
+   */
+  async nextReceiptNo(
+    tx: Tx,
+    input: { schoolId: SchoolId; fiscalYear: number },
+  ): Promise<bigint> {
+    await tx
+      .insert(receiptSequence)
+      .values({ schoolId: input.schoolId, fiscalYear: input.fiscalYear })
+      .onConflictDoNothing();
+
+    const locked = await tx.execute<{ next_value: string }>(sql`
+      SELECT next_value FROM receipt_sequence
+       WHERE tenant_id = app.current_tenant_id()
+         AND school_id = ${Ids.toUuid(input.schoolId)}
+         AND fiscal_year = ${input.fiscalYear}
+       FOR UPDATE
+    `);
+    const current = BigInt(locked.rows[0]?.next_value ?? '1');
+
+    await tx
+      .update(receiptSequence)
+      .set({ nextValue: current + 1n })
+      .where(
+        and(eq(receiptSequence.schoolId, input.schoolId), eq(receiptSequence.fiscalYear, input.fiscalYear)),
+      );
+
+    return current;
+  },
+
+  async createPayment(
+    tx: Tx,
+    input: {
+      schoolId: SchoolId;
+      studentId: StudentId;
+      fiscalYear: number;
+      receiptNo: bigint;
+      amountMinor: bigint;
+      channel: 'cash' | 'bank' | 'cheque' | 'mfs' | 'online';
+      channelRef: string | null;
+      collectedAt: Date;
+      /** Explicit rather than the column's own `defaultNow()` — a use case
+       *  under an injected test clock needs its OWN idea of "now" to reach
+       *  the stored row, the same reasoning `audit()` takes its timestamp
+       *  from the caller rather than the database. */
+      recordedAt: Date;
+      collectedBy: PersonId;
+      idempotencyKey: string;
+      actorId: PersonId;
+    },
+  ): Promise<PaymentId> {
+    const id = Ids.generate<'payment'>();
+    await tx.insert(payment).values({
+      id,
+      schoolId: input.schoolId,
+      studentId: input.studentId,
+      fiscalYear: input.fiscalYear,
+      receiptNo: input.receiptNo,
+      amountMinor: input.amountMinor,
+      channel: input.channel,
+      channelRef: input.channelRef,
+      collectedAt: input.collectedAt,
+      recordedAt: input.recordedAt,
+      collectedBy: input.collectedBy,
+      idempotencyKey: input.idempotencyKey,
+      createdBy: input.actorId,
+    });
+    return id;
+  },
+
+  async createPaymentAllocation(
+    tx: Tx,
+    input: {
+      paymentId: PaymentId;
+      invoiceLineId: InvoiceLineId;
+      amountMinor: bigint;
+      actorId: PersonId;
+    },
+  ): Promise<void> {
+    await tx.insert(paymentAllocation).values({
+      id: Ids.generate<'paymentAllocation'>(),
+      paymentId: input.paymentId,
+      invoiceLineId: input.invoiceLineId,
+      amountMinor: input.amountMinor,
+      createdBy: input.actorId,
+    });
+  },
+
+  async addPaidToLine(
+    tx: Tx,
+    invoiceLineId: InvoiceLineId,
+    amountMinor: bigint,
+    actorId: PersonId,
+  ): Promise<void> {
+    await tx
+      .update(invoiceLine)
+      .set({ paidMinor: sql`${invoiceLine.paidMinor} + ${amountMinor}`, updatedBy: actorId })
+      .where(eq(invoiceLine.id, invoiceLineId));
+  },
+
+  /** Sums the invoice's own lines back onto `invoice.paid_minor` and derives
+   *  `status` — `paid` once nothing remains, `partially_paid` once something
+   *  has landed, `issued` (unchanged) otherwise. Never touches `draft`,
+   *  `written_off` or `void` — a payment against one of those is refused
+   *  before this is ever called. */
+  async recomputeInvoicePaidStatus(
+    tx: Tx,
+    invoiceId: InvoiceId,
+    actorId: PersonId,
+  ): Promise<{ paidMinor: bigint; status: string }> {
+    const [sums] = await tx
+      .select({ paid: sql<string>`coalesce(sum(${invoiceLine.paidMinor}), 0)` })
+      .from(invoiceLine)
+      .where(and(eq(invoiceLine.invoiceId, invoiceId), isNull(invoiceLine.deletedAt)));
+    const paidMinor = BigInt(sums?.paid ?? '0');
+
+    const [inv] = await tx
+      .select({ totalMinor: invoice.totalMinor, discountMinor: invoice.discountMinor })
+      .from(invoice)
+      .where(eq(invoice.id, invoiceId))
+      .limit(1);
+    if (!inv) {
+      throw new Error(`recomputeInvoicePaidStatus: invoice ${invoiceId} not found`);
+    }
+
+    const netDue = inv.totalMinor - inv.discountMinor;
+    const status = paidMinor >= netDue ? 'paid' : paidMinor > 0n ? 'partially_paid' : 'issued';
+
+    await tx.update(invoice).set({ paidMinor, status, updatedBy: actorId }).where(eq(invoice.id, invoiceId));
+
+    return { paidMinor, status };
   },
 };

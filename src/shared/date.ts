@@ -105,6 +105,22 @@ export const LocalDate = {
     return dhakaParts(at);
   },
 
+  /**
+   * The reverse of `fromInstant`: midnight at the START of this calendar day,
+   * in Dhaka. Used where a wire input is a date (§13.7's `payment.collectedAt`
+   * — "the office enters Saturday's cash on Monday", so what matters is WHICH
+   * business day, not a time of day) but the column it lands in is a
+   * `timestamptz` (`payment.collected_at`).
+   *
+   * The fixed UTC+6 offset is safe here specifically because Bangladesh has
+   * observed no DST since 2009 — a general "LocalDate + wall time → instant"
+   * conversion would need the full IANA rules `Intl.DateTimeFormat` carries,
+   * not a constant. Do not copy this pattern for a timezone that DOES have DST.
+   */
+  toInstantAtStartOfDay(x: LocalDate): Date {
+    return new Date(Date.UTC(x.y, x.m - 1, x.d) - 6 * 3_600_000);
+  },
+
   addDays(x: LocalDate, n: number): LocalDate {
     return fromEpochDay(toEpochDay(x) + n);
   },

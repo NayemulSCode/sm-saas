@@ -13,6 +13,7 @@ import {
   zMoney,
   zNameBn,
   zNameEn,
+  zPaymentChannel,
   zReason,
   zShortReason,
   zUlid,
@@ -91,4 +92,32 @@ export const GenerateInvoicesSchema = z
   .refine((v) => v.issuedOn <= v.dueDate, {
     message: 'finance.error.invalidDates',
     path: ['dueDate'],
+  });
+
+export const RecordPaymentSchema = z
+  .object({
+    studentId: zUlid(),
+    amountMinor: zMoney,
+    channel: zPaymentChannel,
+    channelRef: z.string().trim().max(64).optional(),
+    /** May be backdated — the office enters Saturday's cash on Monday. */
+    collectedAt: zLocalDate,
+    allocation: z
+      .discriminatedUnion('mode', [
+        z.object({ mode: z.literal('auto') }),
+        z.object({
+          mode: z.literal('manual'),
+          lines: z
+            .array(z.object({ invoiceLineId: zUlid(), amountMinor: zMoney }))
+            .min(1),
+        }),
+      ])
+      .default({ mode: 'auto' }),
+    note: z.string().trim().max(280).optional(),
+  })
+  // Every channel except cash needs a reference — a deposit slip, a cheque
+  // number, a transaction id. Cash has none of those to name.
+  .refine((v) => v.channel === 'cash' || !!v.channelRef, {
+    message: 'finance.error.channelReferenceRequired',
+    path: ['channelRef'],
   });

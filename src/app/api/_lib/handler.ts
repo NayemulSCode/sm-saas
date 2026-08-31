@@ -70,6 +70,56 @@ export function authed<TIn, TOut, P = Record<string, string>>(
   };
 }
 
+/**
+ * An authenticated handler for an endpoint §13.7 marks **Idempotency-Key
+ * required** — `POST /payments` today, more later. The ordinary `authed()`
+ * deliberately never exposes the request to the use case ("it cannot reach
+ * for a header nobody validated"); this is the one narrow, explicit
+ * exception — the key is validated HERE (present, non-empty) and handed to
+ * the use case as a plain typed string, not as `req`.
+ */
+export function authedIdempotent<TIn, TOut, P = Record<string, string>>(
+  schema: ZodType<TIn>,
+  run: (
+    ctx: AuthContext,
+    input: TIn,
+    idempotencyKey: string,
+    params: P,
+  ) => Promise<Result<TOut, DomainError>>,
+  options: HandlerOptions = {},
+) {
+  return async (req: NextRequest, context?: RouteContext<P>): Promise<Response> => {
+    const requestId = newRequestId();
+
+    const auth = await requireAuth(requestId);
+    if (!auth.ok) return auth.response;
+
+    const idempotencyKey = req.headers.get('Idempotency-Key')?.trim();
+    if (!idempotencyKey) {
+      return failValidation(
+        [{ path: ['Idempotency-Key'], code: 'missing_header', message: 'common.error.idempotencyKeyRequired' }],
+        requestId,
+      );
+    }
+
+    const body: unknown = await req.json().catch(() => ({}));
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return failValidation(parsed.error.issues, requestId);
+
+    const params = ((await context?.params) ?? {}) as P;
+
+    try {
+      const result = await run({ ...auth.ctx, requestId }, parsed.data, idempotencyKey, params);
+      if (!result.ok) return fail(result.error, requestId);
+      return ok(result.value, { requestId }, { status: options.status ?? 200 });
+    } catch (e) {
+      const denied = toAuthFailure(e, requestId);
+      if (denied) return denied;
+      throw e;
+    }
+  };
+}
+
 /** An authenticated read. No body, so no schema. */
 export function authedRead<TOut, P = Record<string, string>>(
   run: (ctx: AuthContext, params: P, req: NextRequest) => Promise<Result<TOut, DomainError>>,

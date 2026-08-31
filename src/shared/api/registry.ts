@@ -58,6 +58,7 @@ import {
   CreateDiscountSchema,
   ApproveDiscountSchema,
   GenerateInvoicesSchema,
+  RecordPaymentSchema,
 } from '../../modules/finance/application/dto';
 
 export interface QueryParam {
@@ -783,6 +784,40 @@ export const ENDPOINTS: Endpoint[] = [
     failures: [
       { status: 404, code: 'YEAR_NOT_FOUND', when: 'No such academic year.' },
       { status: 400, code: 'INVALID_DATES', when: '`issuedOn`/`dueDate` malformed, or `dueDate` before `issuedOn`.' },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/students/{studentId}/outstanding',
+    tag: 'Finance',
+    summary: 'What a student currently owes',
+    description: 'Drives the collection screen — the same set, in the same `oldest_first` order, `POST /payments` allocates an `auto` payment against.',
+    permission: 'fee.read',
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/payments',
+    tag: 'Finance',
+    summary: 'Record a payment and issue its receipt',
+    description:
+      'Receipt numbers are gapless per school per fiscal year (§13.3, §13.4) — a `SELECT … FOR UPDATE` on the counter, not a `SEQUENCE`, so a rollback later in the same transaction returns the number with it. `allocation.mode: "auto"` is `oldest_first`; `"manual"` names amounts per line and must sum exactly to `amountMinor`.',
+    permission: 'fee.collect',
+    body: RecordPaymentSchema,
+    successStatus: 201,
+    returns: '`{ id, receiptNo, amountMinor, collectedAt, recordedAt, allocations, remainingDueMinor }`.',
+    failures: [
+      { status: 404, code: 'STUDENT_NOT_FOUND', when: 'No such student.' },
+      { status: 400, code: 'INVALID_COLLECTED_AT', when: '`collectedAt` is malformed or not a real calendar date.' },
+      { status: 400, code: 'CHANNEL_REFERENCE_REQUIRED', when: 'Every channel except `cash` needs `channelRef`.' },
+      { status: 422, code: 'ALLOCATION_EXCEEDS_OUTSTANDING', when: 'The amount is larger than everything this allocation could apply to.' },
+      { status: 404, code: 'UNKNOWN_INVOICE_LINE', when: '`manual` named a line this student has no outstanding balance on.' },
+      { status: 422, code: 'MANUAL_ALLOCATION_INCOMPLETE', when: '`manual` amounts do not sum to `amountMinor`, or a named line got zero or negative.' },
+      { status: 403, code: 'BACKDATE_NOT_PERMITTED', when: '`collectedAt` is before today and the caller holds `fee.collect` but not `fee.backdate`.' },
+      { status: 409, code: 'IDEMPOTENCY_KEY_REUSED', when: 'The same `Idempotency-Key` was used for a materially different request.' },
+    ],
+    notes: [
+      'Requires an `Idempotency-Key` header. A retry with the SAME key and the same request body replays the original response — no second payment, no second receipt number. The same key with a DIFFERENT body is refused.',
     ],
   },
 
