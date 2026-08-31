@@ -121,6 +121,8 @@ endpoints. It is never in a response body and cannot be read from script.
 | `POST` | [`/api/v1/discounts`](#post-api-v1-discounts) | `fee.read` |
 | `POST` | [`/api/v1/discounts/{discountId}/approve`](#post-api-v1-discounts-discountId-approve) | `fee.waive` |
 | `POST` | [`/api/v1/invoices/generate`](#post-api-v1-invoices-generate) | `fee.structure.manage` |
+| `GET` | [`/api/v1/students/{studentId}/outstanding`](#get-api-v1-students-studentId-outstanding) | `fee.read` |
+| `POST` | [`/api/v1/payments`](#post-api-v1-payments) | `fee.collect` |
 
 ### Operations
 
@@ -2153,6 +2155,141 @@ _Permission: `fee.structure.manage`_
 |---|---|---|
 | 404 | `YEAR_NOT_FOUND` | No such academic year. |
 | 400 | `INVALID_DATES` | `issuedOn`/`dueDate` malformed, or `dueDate` before `issuedOn`. |
+
+### `GET /api/v1/students/{studentId}/outstanding`
+
+**What a student currently owes**
+
+Drives the collection screen — the same set, in the same `oldest_first` order, `POST /payments` allocates an `auto` payment against.
+
+_Permission: `fee.read`_
+
+**200** — Success.
+
+### `POST /api/v1/payments`
+
+**Record a payment and issue its receipt**
+
+Receipt numbers are gapless per school per fiscal year (§13.3, §13.4) — a `SELECT … FOR UPDATE` on the counter, not a `SEQUENCE`, so a rollback later in the same transaction returns the number with it. `allocation.mode: "auto"` is `oldest_first`; `"manual"` names amounts per line and must sum exactly to `amountMinor`.
+
+_Permission: `fee.collect`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "studentId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "amountMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "cash",
+        "bank",
+        "cheque",
+        "mfs",
+        "online"
+      ]
+    },
+    "channelRef": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "collectedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "allocation": {
+      "default": {
+        "mode": "auto"
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "auto"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "manual"
+            },
+            "lines": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "invoiceLineId": {
+                    "type": "string",
+                    "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+                  },
+                  "amountMinor": {
+                    "type": "string",
+                    "pattern": "^-?\\d+$"
+                  }
+                },
+                "required": [
+                  "invoiceLineId",
+                  "amountMinor"
+                ]
+              }
+            }
+          },
+          "required": [
+            "mode",
+            "lines"
+          ]
+        }
+      ]
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 280
+    }
+  },
+  "required": [
+    "studentId",
+    "amountMinor",
+    "channel",
+    "collectedAt"
+  ]
+}
+```
+
+**201** — `{ id, receiptNo, amountMinor, collectedAt, recordedAt, allocations, remainingDueMinor }`.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `STUDENT_NOT_FOUND` | No such student. |
+| 400 | `INVALID_COLLECTED_AT` | `collectedAt` is malformed or not a real calendar date. |
+| 400 | `CHANNEL_REFERENCE_REQUIRED` | Every channel except `cash` needs `channelRef`. |
+| 422 | `ALLOCATION_EXCEEDS_OUTSTANDING` | The amount is larger than everything this allocation could apply to. |
+| 404 | `UNKNOWN_INVOICE_LINE` | `manual` named a line this student has no outstanding balance on. |
+| 422 | `MANUAL_ALLOCATION_INCOMPLETE` | `manual` amounts do not sum to `amountMinor`, or a named line got zero or negative. |
+| 403 | `BACKDATE_NOT_PERMITTED` | `collectedAt` is before today and the caller holds `fee.collect` but not `fee.backdate`. |
+| 409 | `IDEMPOTENCY_KEY_REUSED` | The same `Idempotency-Key` was used for a materially different request. |
+
+> Requires an `Idempotency-Key` header. A retry with the SAME key and the same request body replays the original response — no second payment, no second receipt number. The same key with a DIFFERENT body is refused.
 
 ## Operations
 

@@ -1,10 +1,10 @@
 /**
  * The finance module's only importable surface (ADR-0001).
  *
- * §13.1 (fee definition) is complete: fee heads, fee structures, per-student
- * fee assignments and discounts (with their approval workflow) all have real
- * use cases. §13.6 (invoice generation) reads all four now. Payment recording
- * and receipt issuance are still ahead.
+ * §13.1 (fee definition), §13.6 (invoice generation) and now §13.3/§13.4
+ * (payment recording and receipt issuance) all have real use cases. Payment
+ * reversal (§13.7's `POST /payments/:id:reverse`) and collection sessions
+ * are still ahead.
  */
 
 export {
@@ -22,6 +22,8 @@ export {
   type ApplicableDiscount,
   type PricedHead,
 } from './domain/rules/price';
+
+export { fiscalYearOf } from './domain/rules/fiscalYear';
 
 export {
   createFeeHead,
@@ -64,6 +66,16 @@ export {
   type GenerateInvoicesResult,
 } from './application/generateInvoices';
 
+export { listOutstanding, type OutstandingLineView } from './application/listOutstanding';
+
+export {
+  recordPayment,
+  PaymentErrors,
+  type RecordPaymentInput,
+  type PaymentView,
+  type PaymentAllocationView,
+} from './application/recordPayment';
+
 export {
   CreateFeeHeadSchema,
   CreateFeeStructureSchema,
@@ -71,4 +83,5 @@ export {
   CreateDiscountSchema,
   ApproveDiscountSchema,
   GenerateInvoicesSchema,
+  RecordPaymentSchema,
 } from './application/dto';
