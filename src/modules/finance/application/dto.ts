@@ -7,10 +7,14 @@
 
 import { z } from 'zod';
 import {
+  zDiscountKind,
   zFeeFrequency,
+  zLocalDate,
   zMoney,
   zNameBn,
   zNameEn,
+  zReason,
+  zShortReason,
   zUlid,
 } from '../../../shared/api/primitives';
 
@@ -43,3 +47,36 @@ export const CreateFeeStructureSchema = z
     message: 'finance.error.exactlyOneScope',
     path: ['classLevelId'],
   });
+
+// studentId is NOT here — it comes from the URL path
+// (`/students/{studentId}/fee-assignments`), same convention `LinkGuardianSchema`
+// already uses for its nested route.
+export const CreateFeeAssignmentSchema = z.object({
+  feeHeadId: zUlid(),
+  academicYearId: zUlid(),
+  amountMinor: zMoney,
+  reason: zShortReason,
+});
+
+export const CreateDiscountSchema = z
+  .object({
+    studentId: zUlid(),
+    /** Omitted = every head. */
+    feeHeadId: zUlid().optional(),
+    kind: zDiscountKind,
+    valueMinor: zMoney.optional(),
+    percent: z.number().min(0).max(100).optional(),
+    validFrom: zLocalDate,
+    validTo: zLocalDate.optional(),
+    reason: zShortReason,
+  })
+  // Fixed amount OR percent, never both, never neither — mirrors `discount`'s
+  // own CHECK (num_nonnulls(value_minor, percent) = 1).
+  .refine((v) => (v.valueMinor !== undefined) !== (v.percent !== undefined), {
+    message: 'finance.error.exactlyOneDiscountValue',
+    path: ['valueMinor'],
+  });
+
+/** Dangerous: `fee.waive` is in `DANGEROUS_PERMISSIONS`, so this needs the
+ *  longer, substantive reason — same bar as `CloseAcademicYearSchema`. */
+export const ApproveDiscountSchema = z.object({ reason: zReason });

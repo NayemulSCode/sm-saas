@@ -51,7 +51,13 @@ import {
   MergePersonsSchema,
   UnmergePersonsSchema,
 } from '../../modules/directory/application/dto';
-import { CreateFeeHeadSchema, CreateFeeStructureSchema } from '../../modules/finance/application/dto';
+import {
+  CreateFeeHeadSchema,
+  CreateFeeStructureSchema,
+  CreateFeeAssignmentSchema,
+  CreateDiscountSchema,
+  ApproveDiscountSchema,
+} from '../../modules/finance/application/dto';
 
 export interface QueryParam {
   name: string;
@@ -698,6 +704,68 @@ export const ENDPOINTS: Endpoint[] = [
       { status: 404, code: 'SCOPE_NOT_FOUND', when: 'No such class level or section.' },
       { status: 400, code: 'SCOPE_SCHOOL_MISMATCH', when: 'The class level or section belongs to a different school than the academic year.' },
       { status: 409, code: 'DUPLICATE_SCOPE', when: 'This head already has a price for this exact scope, in this year.' },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/students/{studentId}/fee-assignments',
+    tag: 'Finance',
+    summary: 'List a student’s fee overrides',
+    permission: 'fee.read',
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/students/{studentId}/fee-assignments',
+    tag: 'Finance',
+    summary: 'Override the class price for one student',
+    description: 'A scholarship, or a corrected amount for one student. Beats `fee_structure` for this exact (student, head, year).',
+    permission: 'fee.structure.manage',
+    body: CreateFeeAssignmentSchema,
+    successStatus: 201,
+    failures: [
+      { status: 404, code: 'STUDENT_NOT_FOUND', when: 'No such student.' },
+      { status: 404, code: 'HEAD_NOT_FOUND', when: 'No such fee head.' },
+      { status: 404, code: 'YEAR_NOT_FOUND', when: 'No such academic year.' },
+      { status: 409, code: 'ASSIGNMENT_TAKEN', when: 'This student already has an override for this head and year.' },
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/discounts',
+    tag: 'Finance',
+    summary: 'List discounts',
+    permission: 'fee.read',
+    query: [{ name: 'studentId', description: 'Optional. Narrows the list to one student.' }],
+    successStatus: 200,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/discounts',
+    tag: 'Finance',
+    summary: 'Propose a discount',
+    description: 'Only needs `fee.read` — it always lands `pending`. Nothing it does is real until it is approved.',
+    permission: 'fee.read',
+    body: CreateDiscountSchema,
+    successStatus: 201,
+    failures: [
+      { status: 404, code: 'STUDENT_NOT_FOUND', when: 'No such student.' },
+      { status: 404, code: 'HEAD_NOT_FOUND', when: 'No such fee head.' },
+      { status: 400, code: 'INVALID_DATE_RANGE', when: '`validTo` is before `validFrom`, or either is malformed.' },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/discounts/{discountId}/approve',
+    tag: 'Finance',
+    summary: 'Approve a discount',
+    description: 'The principal alone (`fee.waive`) — collect / waive / refund stay separate, per the permission matrix.',
+    permission: 'fee.waive',
+    body: ApproveDiscountSchema,
+    successStatus: 200,
+    failures: [
+      { status: 404, code: 'NOT_FOUND', when: 'No such discount.' },
+      { status: 409, code: 'ALREADY_DECIDED', when: 'Already approved, rejected or revoked — approval is a one-way door.' },
     ],
   },
 

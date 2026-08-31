@@ -115,6 +115,11 @@ endpoints. It is never in a response body and cannot be read from script.
 | `POST` | [`/api/v1/fee-heads`](#post-api-v1-fee-heads) | `fee.structure.manage` |
 | `GET` | [`/api/v1/fee-structures`](#get-api-v1-fee-structures) | `fee.read` |
 | `POST` | [`/api/v1/fee-structures`](#post-api-v1-fee-structures) | `fee.structure.manage` |
+| `GET` | [`/api/v1/students/{studentId}/fee-assignments`](#get-api-v1-students-studentId-fee-assignments) | `fee.read` |
+| `POST` | [`/api/v1/students/{studentId}/fee-assignments`](#post-api-v1-students-studentId-fee-assignments) | `fee.structure.manage` |
+| `GET` | [`/api/v1/discounts`](#get-api-v1-discounts) | `fee.read` |
+| `POST` | [`/api/v1/discounts`](#post-api-v1-discounts) | `fee.read` |
+| `POST` | [`/api/v1/discounts/{discountId}/approve`](#post-api-v1-discounts-discountId-approve) | `fee.waive` |
 
 ### Operations
 
@@ -1910,6 +1915,192 @@ _Permission: `fee.structure.manage`_
 | 404 | `SCOPE_NOT_FOUND` | No such class level or section. |
 | 400 | `SCOPE_SCHOOL_MISMATCH` | The class level or section belongs to a different school than the academic year. |
 | 409 | `DUPLICATE_SCOPE` | This head already has a price for this exact scope, in this year. |
+
+### `GET /api/v1/students/{studentId}/fee-assignments`
+
+**List a student’s fee overrides**
+
+_Permission: `fee.read`_
+
+**200** — Success.
+
+### `POST /api/v1/students/{studentId}/fee-assignments`
+
+**Override the class price for one student**
+
+A scholarship, or a corrected amount for one student. Beats `fee_structure` for this exact (student, head, year).
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "feeHeadId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "academicYearId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "amountMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 280
+    }
+  },
+  "required": [
+    "feeHeadId",
+    "academicYearId",
+    "amountMinor",
+    "reason"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `STUDENT_NOT_FOUND` | No such student. |
+| 404 | `HEAD_NOT_FOUND` | No such fee head. |
+| 404 | `YEAR_NOT_FOUND` | No such academic year. |
+| 409 | `ASSIGNMENT_TAKEN` | This student already has an override for this head and year. |
+
+### `GET /api/v1/discounts`
+
+**List discounts**
+
+_Permission: `fee.read`_
+
+**Query**
+
+| Name | Meaning |
+|---|---|
+| `studentId` | Optional. Narrows the list to one student. |
+
+**200** — Success.
+
+### `POST /api/v1/discounts`
+
+**Propose a discount**
+
+Only needs `fee.read` — it always lands `pending`. Nothing it does is real until it is approved.
+
+_Permission: `fee.read`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "studentId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "feeHeadId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "sibling",
+        "staff_child",
+        "merit",
+        "need",
+        "other"
+      ]
+    },
+    "valueMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "percent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "validFrom": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "validTo": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 280
+    }
+  },
+  "required": [
+    "studentId",
+    "kind",
+    "validFrom",
+    "reason"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `STUDENT_NOT_FOUND` | No such student. |
+| 404 | `HEAD_NOT_FOUND` | No such fee head. |
+| 400 | `INVALID_DATE_RANGE` | `validTo` is before `validFrom`, or either is malformed. |
+
+### `POST /api/v1/discounts/{discountId}/approve`
+
+**Approve a discount**
+
+The principal alone (`fee.waive`) — collect / waive / refund stay separate, per the permission matrix.
+
+_Permission: `fee.waive`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 280
+    }
+  },
+  "required": [
+    "reason"
+  ]
+}
+```
+
+**200** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `NOT_FOUND` | No such discount. |
+| 409 | `ALREADY_DECIDED` | Already approved, rejected or revoked — approval is a one-way door. |
 
 ## Operations
 
