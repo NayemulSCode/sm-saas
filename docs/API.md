@@ -120,6 +120,7 @@ endpoints. It is never in a response body and cannot be read from script.
 | `GET` | [`/api/v1/discounts`](#get-api-v1-discounts) | `fee.read` |
 | `POST` | [`/api/v1/discounts`](#post-api-v1-discounts) | `fee.read` |
 | `POST` | [`/api/v1/discounts/{discountId}/approve`](#post-api-v1-discounts-discountId-approve) | `fee.waive` |
+| `POST` | [`/api/v1/invoices/generate`](#post-api-v1-invoices-generate) | `fee.structure.manage` |
 
 ### Operations
 
@@ -2101,6 +2102,57 @@ _Permission: `fee.waive`_
 |---|---|---|
 | 404 | `NOT_FOUND` | No such discount. |
 | 409 | `ALREADY_DECIDED` | Already approved, rejected or revoked — approval is a one-way door. |
+
+### `POST /api/v1/invoices/generate`
+
+**Generate invoices for a period**
+
+Idempotent by construction (§13.6): running it twice for the same academic year and period adds nothing the second time. Combines `fee_structure ∪ fee_assignment` and applies approved discounts valid on `issuedOn`, for every active enrolment. Excludes withdrawn, alumni and (by default, pending real per-tenant configuration) on-leave students.
+
+_Permission: `fee.structure.manage`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "academicYearId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "periodLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "issuedOn": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "dueDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "academicYearId",
+    "periodLabel",
+    "issuedOn",
+    "dueDate"
+  ]
+}
+```
+
+**200** — `{ studentsProcessed, invoicesCreated, invoicesReused, linesCreated }`.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `YEAR_NOT_FOUND` | No such academic year. |
+| 400 | `INVALID_DATES` | `issuedOn`/`dueDate` malformed, or `dueDate` before `issuedOn`. |
 
 ## Operations
 

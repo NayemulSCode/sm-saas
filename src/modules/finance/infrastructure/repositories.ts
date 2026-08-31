@@ -15,13 +15,21 @@
  * is not.
  */
 
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Tx } from '../../../db/rls';
-import { discount, feeAssignment, feeHead, feeStructure } from '../../../db/schema/finance';
+import {
+  discount,
+  feeAssignment,
+  feeHead,
+  feeStructure,
+  invoice,
+  invoiceLine,
+} from '../../../db/schema/finance';
 import { academicYear, classLevel, section } from '../../../db/schema/structure';
 import { student } from '../../../db/schema/directoryStudents';
+import { enrolment } from '../../../db/schema/directory';
 import { Ids } from '../../../shared/ids';
-import type { LocalDate } from '../../../shared/date';
+import { LocalDate } from '../../../shared/date';
 import type {
   AcademicYearId,
   ClassLevelId,
@@ -29,6 +37,7 @@ import type {
   FeeAssignmentId,
   FeeHeadId,
   FeeStructureId,
+  InvoiceId,
   PersonId,
   SchoolId,
   SectionId,
@@ -79,6 +88,32 @@ export interface DiscountRecord {
   approvedBy: PersonId | null;
   approvedAt: Date | null;
   status: 'pending' | 'approved' | 'rejected' | 'revoked';
+}
+
+export interface ActiveEnrolment {
+  studentId: StudentId;
+  classLevelId: ClassLevelId;
+  sectionId: SectionId;
+}
+
+/** A `fee_structure` row in scope for one (class, section) pair. `scope`
+ *  tells `priceStudentFees` (domain/rules/price.ts) which one it is —
+ *  section beats class for the same head. */
+export interface FeeStructureCandidate {
+  feeHeadId: FeeHeadId;
+  amountMinor: bigint;
+  scope: 'class' | 'section';
+}
+
+export interface AssignmentOverrideRecord {
+  feeHeadId: FeeHeadId;
+  amountMinor: bigint;
+}
+
+export interface ApprovedDiscountRecord {
+  feeHeadId: FeeHeadId | null;
+  valueMinor: bigint | null;
+  percent: string | null;
 }
 
 export const finance = {
@@ -430,5 +465,229 @@ export const finance = {
       .from(discount)
       .where(and(...conditions))
       .orderBy(desc(discount.createdAt));
+  },
+
+  // ── invoice generation reads (§13.6) ─────────────────────────────────────
+
+  /**
+   * The cohort a generation run prices. `enrolment.outcome IS NULL` is the
+   * same "still live this year" filter `directory.candidatesIn` uses for
+   * promotion — an enrolment with an outcome has already been superseded.
+   * `student.status = 'active'` excludes withdrawn and alumni unconditionally
+   * and on-leave BY DEFAULT — §13.6 calls the on-leave rule per-tenant
+   * configuration, which does not exist yet (flagged in this PR, not
+   * silently guessed at).
+   */
+  async activeEnrolmentsFor(
+    tx: Tx,
+    input: { schoolId: SchoolId; academicYearId: AcademicYearId },
+  ): Promise<ActiveEnrolment[]> {
+    return tx
+      .select({
+        studentId: enrolment.studentId,
+        sectionId: enrolment.sectionId,
+        classLevelId: section.classLevelId,
+      })
+      .from(enrolment)
+      .innerJoin(section, eq(section.id, enrolment.sectionId))
+      .innerJoin(classLevel, eq(classLevel.id, section.classLevelId))
+      .innerJoin(student, eq(student.id, enrolment.studentId))
+      .where(
+        and(
+          eq(enrolment.academicYearId, input.academicYearId),
+          eq(classLevel.schoolId, input.schoolId),
+          isNull(enrolment.deletedAt),
+          isNull(enrolment.outcome),
+          eq(student.status, 'active'),
+          isNull(student.deletedAt),
+        ),
+      );
+  },
+
+  /** Every `fee_structure` row that could apply to this (class, section) —
+   *  both scopes, so the use case (via `priceStudentFees`) can let the more
+   *  specific one win rather than this query silently picking one. */
+  async structureCandidatesFor(
+    tx: Tx,
+    input: { academicYearId: AcademicYearId; classLevelId: ClassLevelId; sectionId: SectionId },
+  ): Promise<FeeStructureCandidate[]> {
+    const rows = await tx
+      .select({
+        feeHeadId: feeStructure.feeHeadId,
+        amountMinor: feeStructure.amountMinor,
+        classLevelId: feeStructure.classLevelId,
+        sectionId: feeStructure.sectionId,
+      })
+      .from(feeStructure)
+      .where(
+        and(
+          eq(feeStructure.academicYearId, input.academicYearId),
+          or(
+            eq(feeStructure.classLevelId, input.classLevelId),
+            eq(feeStructure.sectionId, input.sectionId),
+          ),
+          isNull(feeStructure.deletedAt),
+        ),
+      );
+    return rows.map((r) => ({
+      feeHeadId: r.feeHeadId,
+      amountMinor: r.amountMinor,
+      scope: r.classLevelId !== null ? ('class' as const) : ('section' as const),
+    }));
+  },
+
+  async assignmentOverridesFor(
+    tx: Tx,
+    input: { studentId: StudentId; academicYearId: AcademicYearId },
+  ): Promise<AssignmentOverrideRecord[]> {
+    return tx
+      .select({ feeHeadId: feeAssignment.feeHeadId, amountMinor: feeAssignment.amountMinor })
+      .from(feeAssignment)
+      .where(
+        and(
+          eq(feeAssignment.studentId, input.studentId),
+          eq(feeAssignment.academicYearId, input.academicYearId),
+          isNull(feeAssignment.deletedAt),
+        ),
+      );
+  },
+
+  /** Approved, and valid ON the period's start date — §13.6: "approved
+   *  discounts valid on period start". */
+  async approvedDiscountsFor(
+    tx: Tx,
+    input: { studentId: StudentId; onDate: LocalDate },
+  ): Promise<ApprovedDiscountRecord[]> {
+    return tx
+      .select({
+        feeHeadId: discount.feeHeadId,
+        valueMinor: discount.valueMinor,
+        percent: discount.percent,
+      })
+      .from(discount)
+      .where(
+        and(
+          eq(discount.studentId, input.studentId),
+          eq(discount.status, 'approved'),
+          isNull(discount.deletedAt),
+          lte(discount.validFrom, input.onDate),
+          or(isNull(discount.validTo), gte(discount.validTo, input.onDate)),
+        ),
+      );
+  },
+
+  /**
+   * Idempotent lookup-or-create. Migration 0015's partial unique index
+   * (`tenant_id, student_id, academic_year_id, period_label WHERE ... source
+   * = 'system'`) is the actual guard — this is a fast-path SELECT first
+   * (the overwhelmingly common case on a re-run: nothing to insert at all),
+   * then an `ON CONFLICT DO NOTHING` insert for the genuinely-new case, then
+   * a final re-SELECT for the race a concurrent caller could still win.
+   * Raw SQL because Drizzle's query builder has no way to name a PARTIAL
+   * index's predicate on an insert's conflict target.
+   */
+  async findOrCreateInvoice(
+    tx: Tx,
+    input: {
+      studentId: StudentId;
+      academicYearId: AcademicYearId;
+      periodLabel: string;
+      issuedOn: LocalDate;
+      dueDate: LocalDate;
+      actorId: PersonId;
+    },
+  ): Promise<{ invoiceId: InvoiceId; created: boolean }> {
+    const existingCond = and(
+      eq(invoice.studentId, input.studentId),
+      eq(invoice.academicYearId, input.academicYearId),
+      eq(invoice.periodLabel, input.periodLabel),
+      eq(invoice.source, 'system'),
+      isNull(invoice.deletedAt),
+    );
+
+    const [existing] = await tx.select({ id: invoice.id }).from(invoice).where(existingCond).limit(1);
+    if (existing) return { invoiceId: existing.id, created: false };
+
+    const id = Ids.generate<'invoice'>();
+    const inserted = await tx.execute<{ id: string }>(sql`
+      INSERT INTO invoice
+        (id, tenant_id, student_id, academic_year_id, period_label, issued_on, due_date, source, created_by)
+      VALUES
+        (${Ids.toUuid(id)}, app.current_tenant_id(), ${Ids.toUuid(input.studentId)},
+         ${Ids.toUuid(input.academicYearId)}, ${input.periodLabel},
+         ${LocalDate.toISO(input.issuedOn)}, ${LocalDate.toISO(input.dueDate)},
+         'system', ${Ids.toUuid(input.actorId)})
+      ON CONFLICT (tenant_id, student_id, academic_year_id, period_label)
+        WHERE deleted_at IS NULL AND source = 'system'
+        DO NOTHING
+      RETURNING id
+    `);
+    if (inserted.rows[0]) return { invoiceId: id, created: true };
+
+    // Lost the race — a concurrent caller's insert won between the SELECT
+    // above and this one.
+    const [winner] = await tx.select({ id: invoice.id }).from(invoice).where(existingCond).limit(1);
+    if (!winner) {
+      throw new Error(
+        'findOrCreateInvoice: insert conflicted but no row was found — the unique index and this query have drifted apart',
+      );
+    }
+    return { invoiceId: winner.id, created: false };
+  },
+
+  /** `ON CONFLICT DO NOTHING` against `invoice_line`'s own unique index —
+   *  §13.6's own words for it: "the idempotency guard" for a re-run. Same
+   *  raw-SQL reasoning as `findOrCreateInvoice`. */
+  async insertInvoiceLineIfAbsent(
+    tx: Tx,
+    input: {
+      invoiceId: InvoiceId;
+      feeHeadId: FeeHeadId;
+      description: string;
+      amountMinor: bigint;
+      discountMinor: bigint;
+      actorId: PersonId;
+    },
+  ): Promise<boolean> {
+    const id = Ids.generate<'invoiceLine'>();
+    const inserted = await tx.execute<{ id: string }>(sql`
+      INSERT INTO invoice_line
+        (id, tenant_id, invoice_id, fee_head_id, description, amount_minor, discount_minor, created_by)
+      VALUES
+        (${Ids.toUuid(id)}, app.current_tenant_id(), ${Ids.toUuid(input.invoiceId)},
+         ${Ids.toUuid(input.feeHeadId)}, ${input.description}, ${input.amountMinor},
+         ${input.discountMinor}, ${Ids.toUuid(input.actorId)})
+      ON CONFLICT (tenant_id, invoice_id, fee_head_id) WHERE deleted_at IS NULL
+        DO NOTHING
+      RETURNING id
+    `);
+    return inserted.rows.length > 0;
+  },
+
+  /** Sums `invoice_line` back onto `invoice.total_minor`/`discount_minor`
+   *  and marks it `issued` — there is no draft-editing workflow yet, so
+   *  generation is the only path to `issued` and skips `draft` entirely. */
+  async recomputeInvoiceTotals(
+    tx: Tx,
+    invoiceId: InvoiceId,
+    actorId: PersonId,
+  ): Promise<{ totalMinor: bigint; discountMinor: bigint }> {
+    const [totals] = await tx
+      .select({
+        total: sql<string>`coalesce(sum(${invoiceLine.amountMinor}), 0)`,
+        discount: sql<string>`coalesce(sum(${invoiceLine.discountMinor}), 0)`,
+      })
+      .from(invoiceLine)
+      .where(and(eq(invoiceLine.invoiceId, invoiceId), isNull(invoiceLine.deletedAt)));
+
+    const totalMinor = BigInt(totals?.total ?? '0');
+    const discountMinor = BigInt(totals?.discount ?? '0');
+
+    await tx
+      .update(invoice)
+      .set({ totalMinor, discountMinor, status: 'issued', updatedBy: actorId })
+      .where(eq(invoice.id, invoiceId));
+
+    return { totalMinor, discountMinor };
   },
 };

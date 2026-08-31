@@ -56,6 +56,8 @@ export type FeeHeadId = Id<'feeHead'>;
 export type FeeStructureId = Id<'feeStructure'>;
 export type FeeAssignmentId = Id<'feeAssignment'>;
 export type DiscountId = Id<'discount'>;
+export type InvoiceId = Id<'invoice'>;
+export type InvoiceLineId = Id<'invoiceLine'>;
 
 export type IdError = { code: 'INVALID_ULID'; input: string };
 
