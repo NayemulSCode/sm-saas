@@ -20,7 +20,7 @@ import { audit, fact } from '../../../db/audit';
 import { type Result, ok, err, type DomainError, defineErrors } from '../../../shared/result';
 import { authorize, type AuthContext } from '../../../shared/auth-context';
 import { LocalDate, systemClock, type Clock } from '../../../shared/date';
-import type { InvoiceId, PaymentId } from '../../../shared/ids';
+import type { CollectionSessionId, InvoiceId, PaymentId } from '../../../shared/ids';
 import { fiscalYearOf } from '../domain/rules/fiscalYear';
 import { finance } from '../infrastructure/repositories';
 import type { PaymentAllocationView, PaymentView } from './recordPayment';
@@ -88,6 +88,23 @@ export async function reversePayment(
       const fiscalYear = fiscalYearOf(collectedAt.value, fiscalYearStartMonth);
       const receiptNo = await finance.nextReceiptNo(tx, { schoolId: original.schoolId, fiscalYear });
 
+      // Attach to the REFUNDER's own open session, if one exists for the
+      // original payment's school — cash physically leaves THIS drawer, now,
+      // not whichever one collected it originally (which may be someone
+      // else's, or long closed). Unlike `recordPayment`, a closed session
+      // never refuses a reversal — a legitimate refund should not need a
+      // supervisor to reopen yesterday's drawer first.
+      let collectionSessionId: CollectionSessionId | undefined;
+      if (original.channel === 'cash') {
+        const session = await finance.collectorSessionFor(tx, {
+          collectorPersonId: ctx.personId,
+          businessDate: today,
+        });
+        if (session && session.status === 'open' && session.schoolId === original.schoolId) {
+          collectionSessionId = session.id;
+        }
+      }
+
       const reversingPaymentId = await finance.createPayment(tx, {
         schoolId: original.schoolId,
         studentId: original.studentId,
@@ -109,6 +126,7 @@ export async function reversePayment(
         actorId: ctx.personId,
         reversesPaymentId: original.id,
         reversalReason: input.reason,
+        collectionSessionId,
       });
 
       const allocations = await finance.paymentAllocationsFor(tx, original.id);

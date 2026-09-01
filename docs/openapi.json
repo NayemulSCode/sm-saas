@@ -5504,6 +5504,312 @@
         ]
       }
     },
+    "/api/v1/collection-sessions": {
+      "post": {
+        "tags": [
+          "Finance"
+        ],
+        "summary": "Open today’s collection session",
+        "description": "One drawer per collector per business date (`UNIQUE (tenant_id, collector_person_id, business_date)`) — opt-in, not required: a school that never opens one still records cash payments fine, just without this discipline applied. Once open, every CASH payment the caller records is attached to it automatically.\n\n**Permission:** `fee.collect`",
+        "operationId": "post_api_v1_collection_sessions",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`SESSION_ALREADY_OPEN` — The caller already has a session open today.\n\n`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "schoolId": {
+                    "type": "string",
+                    "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+                  }
+                },
+                "required": [
+                  "schoolId"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/collection-sessions/{sessionId}/close": {
+      "post": {
+        "tags": [
+          "Finance"
+        ],
+        "summary": "Close a collection session",
+        "description": "`expected_minor` is computed from the cash payments (and any cash refunds) attached to this session — the caller only supplies what was actually counted. A non-zero variance is recorded, never silently absorbed; it requires a reason.\n\n**Permission:** `fee.collect`",
+        "operationId": "post_api_v1_collection_sessions_sessionId_close",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VARIANCE_REASON_REQUIRED` — `countedMinor` does not match what was expected, and no `varianceReason` was given.\n\n`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`SESSION_NOT_FOUND` — No such session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`SESSION_NOT_OPEN` — Already closed or verified.\n\n`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "countedMinor": {
+                    "type": "string",
+                    "pattern": "^-?\\d+$"
+                  },
+                  "varianceReason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 280
+                  }
+                },
+                "required": [
+                  "countedMinor"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/collection-sessions/{sessionId}/verify": {
+      "post": {
+        "tags": [
+          "Finance"
+        ],
+        "summary": "Verify a closed collection session",
+        "description": "`fee.reconcile` — deliberately separate from `fee.collect`, so the person confirming the bank deposit matches is not the same person who counted the drawer.\n\n**Permission:** `fee.reconcile`",
+        "operationId": "post_api_v1_collection_sessions_sessionId_verify",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`SESSION_NOT_FOUND` — No such session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`SESSION_NOT_CLOSED` — The session must be closed before it can be verified.\n\n`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "depositReference": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/health/live": {
       "get": {
         "tags": [

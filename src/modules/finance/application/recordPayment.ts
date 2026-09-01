@@ -16,7 +16,13 @@ import { type Result, ok, err, type DomainError, defineErrors } from '../../../s
 import { authorize, type AuthContext } from '../../../shared/auth-context';
 import { LocalDate, systemClock, type Clock } from '../../../shared/date';
 import { Money } from '../../../shared/money';
-import type { InvoiceId, InvoiceLineId, PaymentId, StudentId } from '../../../shared/ids';
+import type {
+  CollectionSessionId,
+  InvoiceId,
+  InvoiceLineId,
+  PaymentId,
+  StudentId,
+} from '../../../shared/ids';
 import { allocatePayment, type AllocationPolicy } from '../domain/rules/allocate';
 import { fiscalYearOf } from '../domain/rules/fiscalYear';
 import { finance } from '../infrastructure/repositories';
@@ -75,6 +81,15 @@ export const PaymentErrors = defineErrors({
     code: 'CHANNEL_REFERENCE_REQUIRED',
     messageKey: 'finance.error.channelReferenceRequired',
     httpStatus: 400,
+  },
+  /** The collector's session for today has already been closed (or
+   *  verified) — §13.7's own error for this endpoint. Reopening it is a
+   *  deliberate, separate decision this use case does not make; the
+   *  collector opens a new one tomorrow, or an accountant intervenes. */
+  SESSION_CLOSED: {
+    code: 'SESSION_CLOSED',
+    messageKey: 'finance.error.sessionClosed',
+    httpStatus: 423,
   },
 });
 
@@ -160,6 +175,24 @@ export async function recordPayment(
       const studentSchool = await finance.studentCurrentSchool(tx, input.studentId);
       if (!studentSchool) return err(PaymentErrors.STUDENT_NOT_FOUND);
 
+      // Only cash ever attaches to a session — §13.3: `expected_minor` is
+      // "Σ cash payments in session". A session for a DIFFERENT school (only
+      // reachable in a multi-school tenant — one collector, one session per
+      // day, tenant-wide) is simply not attached to rather than refused: the
+      // mismatch is a bookkeeping-attribution question, not a reason to stop
+      // someone from collecting a student's money.
+      let collectionSessionId: CollectionSessionId | undefined;
+      if (input.channel === 'cash') {
+        const session = await finance.collectorSessionFor(tx, {
+          collectorPersonId: ctx.personId,
+          businessDate: today,
+        });
+        if (session && session.schoolId === studentSchool.schoolId) {
+          if (session.status !== 'open') return err(PaymentErrors.SESSION_CLOSED);
+          collectionSessionId = session.id;
+        }
+      }
+
       const outstanding = await finance.outstandingLinesFor(tx, input.studentId);
 
       const policy: AllocationPolicy =
@@ -219,6 +252,7 @@ export async function recordPayment(
         collectedBy: ctx.personId,
         idempotencyKey,
         actorId: ctx.personId,
+        collectionSessionId,
       });
 
       const lineToInvoice = new Map(outstanding.map((o) => [o.invoiceLineId, o.invoiceId]));

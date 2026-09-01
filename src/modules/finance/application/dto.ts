@@ -129,3 +129,16 @@ export const ReversePaymentSchema = z.object({
   reason: zReason,
   collectedAt: zLocalDate.optional(),
 });
+
+export const OpenCollectionSessionSchema = z.object({
+  schoolId: zUlid(),
+});
+
+export const CloseCollectionSessionSchema = z.object({
+  countedMinor: zMoney,
+  varianceReason: zShortReason.optional(),
+});
+
+export const VerifyCollectionSessionSchema = z.object({
+  depositReference: z.string().trim().max(64).optional(),
+});
