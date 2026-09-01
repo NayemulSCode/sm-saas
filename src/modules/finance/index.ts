@@ -2,8 +2,8 @@
  * The finance module's only importable surface (ADR-0001).
  *
  * §13.1 (fee definition), §13.6 (invoice generation), §13.3/§13.4 (payment
- * recording and receipt issuance) and now payment reversal all have real use
- * cases. Collection sessions are still ahead.
+ * recording, receipt issuance, reversal) and now collection sessions all
+ * have real use cases. §13's own schema is now fully wired up.
  */
 
 export {
@@ -82,6 +82,16 @@ export {
 } from './application/reversePayment';
 
 export {
+  openCollectionSession,
+  closeCollectionSession,
+  verifyCollectionSession,
+  CollectionSessionErrors,
+  type CloseCollectionSessionInput,
+  type VerifyCollectionSessionInput,
+  type CollectionSessionView,
+} from './application/collectionSessions';
+
+export {
   CreateFeeHeadSchema,
   CreateFeeStructureSchema,
   CreateFeeAssignmentSchema,
@@ -90,4 +100,7 @@ export {
   GenerateInvoicesSchema,
   RecordPaymentSchema,
   ReversePaymentSchema,
+  OpenCollectionSessionSchema,
+  CloseCollectionSessionSchema,
+  VerifyCollectionSessionSchema,
 } from './application/dto';

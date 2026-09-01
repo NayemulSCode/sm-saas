@@ -60,6 +60,9 @@ import {
   GenerateInvoicesSchema,
   RecordPaymentSchema,
   ReversePaymentSchema,
+  OpenCollectionSessionSchema,
+  CloseCollectionSessionSchema,
+  VerifyCollectionSessionSchema,
 } from '../../modules/finance/application/dto';
 
 export interface QueryParam {
@@ -836,6 +839,48 @@ export const ENDPOINTS: Endpoint[] = [
       { status: 409, code: 'ALREADY_REVERSED', when: 'This payment has already been reversed once — reversing a reversal is a new payment, not this operation.' },
       { status: 400, code: 'INVALID_COLLECTED_AT', when: '`collectedAt` is malformed or not a real calendar date.' },
       { status: 403, code: 'BACKDATE_NOT_PERMITTED', when: '`collectedAt` is before today and the caller holds `fee.refund` but not `fee.backdate`.' },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/collection-sessions',
+    tag: 'Finance',
+    summary: 'Open today’s collection session',
+    description: 'One drawer per collector per business date (`UNIQUE (tenant_id, collector_person_id, business_date)`) — opt-in, not required: a school that never opens one still records cash payments fine, just without this discipline applied. Once open, every CASH payment the caller records is attached to it automatically.',
+    permission: 'fee.collect',
+    body: OpenCollectionSessionSchema,
+    successStatus: 201,
+    failures: [
+      { status: 409, code: 'SESSION_ALREADY_OPEN', when: 'The caller already has a session open today.' },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/collection-sessions/{sessionId}/close',
+    tag: 'Finance',
+    summary: 'Close a collection session',
+    description: '`expected_minor` is computed from the cash payments (and any cash refunds) attached to this session — the caller only supplies what was actually counted. A non-zero variance is recorded, never silently absorbed; it requires a reason.',
+    permission: 'fee.collect',
+    body: CloseCollectionSessionSchema,
+    successStatus: 200,
+    failures: [
+      { status: 404, code: 'SESSION_NOT_FOUND', when: 'No such session.' },
+      { status: 409, code: 'SESSION_NOT_OPEN', when: 'Already closed or verified.' },
+      { status: 400, code: 'VARIANCE_REASON_REQUIRED', when: '`countedMinor` does not match what was expected, and no `varianceReason` was given.' },
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/collection-sessions/{sessionId}/verify',
+    tag: 'Finance',
+    summary: 'Verify a closed collection session',
+    description: '`fee.reconcile` — deliberately separate from `fee.collect`, so the person confirming the bank deposit matches is not the same person who counted the drawer.',
+    permission: 'fee.reconcile',
+    body: VerifyCollectionSessionSchema,
+    successStatus: 200,
+    failures: [
+      { status: 404, code: 'SESSION_NOT_FOUND', when: 'No such session.' },
+      { status: 409, code: 'SESSION_NOT_CLOSED', when: 'The session must be closed before it can be verified.' },
     ],
   },
 

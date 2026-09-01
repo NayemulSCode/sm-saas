@@ -18,6 +18,7 @@
 import { and, asc, desc, eq, gte, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
 import type { Tx } from '../../../db/rls';
 import {
+  collectionSession,
   discount,
   feeAssignment,
   feeHead,
@@ -36,6 +37,7 @@ import { LocalDate } from '../../../shared/date';
 import type {
   AcademicYearId,
   ClassLevelId,
+  CollectionSessionId,
   DiscountId,
   FeeAssignmentId,
   FeeHeadId,
@@ -140,6 +142,14 @@ export interface PaymentRecord {
   channel: 'cash' | 'bank' | 'cheque' | 'mfs' | 'online';
   channelRef: string | null;
   reversedByPaymentId: PaymentId | null;
+}
+
+export interface CollectionSessionRecord {
+  id: CollectionSessionId;
+  schoolId: SchoolId;
+  collectorPersonId: PersonId;
+  businessDate: LocalDate;
+  status: 'open' | 'closed' | 'verified';
 }
 
 export const finance = {
@@ -851,6 +861,11 @@ export const finance = {
        *  same rule enforced a second time, in SQL. */
       reversesPaymentId?: PaymentId | undefined;
       reversalReason?: string | undefined;
+      /** The collector's own open cash-drawer session, if one exists and
+       *  this is cash — §13.3: `expected_minor` is "Σ cash payments in
+       *  session", so only cash payments are ever attached. Left `null`
+       *  when the collector has no session open; sessions are opt-in. */
+      collectionSessionId?: CollectionSessionId | undefined;
     },
   ): Promise<PaymentId> {
     const id = Ids.generate<'payment'>();
@@ -869,6 +884,7 @@ export const finance = {
       idempotencyKey: input.idempotencyKey,
       reversesPaymentId: input.reversesPaymentId ?? null,
       reversalReason: input.reversalReason ?? null,
+      collectionSessionId: input.collectionSessionId ?? null,
       createdBy: input.actorId,
     });
     return id;
@@ -1002,5 +1018,132 @@ export const finance = {
       .update(payment)
       .set({ reversedByPaymentId: reversingPaymentId, updatedBy: actorId })
       .where(eq(payment.id, originalPaymentId));
+  },
+
+  // ── collection sessions (§13.3) ──────────────────────────────────────────
+
+  /**
+   * The collector's session for one business date, whatever its status.
+   * `(tenant_id, collector_person_id, business_date)` is UNIQUE — a person
+   * runs at most one cash drawer on a given day, tenant-wide, not
+   * per-school, which is why this takes no `schoolId`.
+   */
+  async collectorSessionFor(
+    tx: Tx,
+    input: { collectorPersonId: PersonId; businessDate: LocalDate },
+  ): Promise<CollectionSessionRecord | undefined> {
+    const [row] = await tx
+      .select({
+        id: collectionSession.id,
+        schoolId: collectionSession.schoolId,
+        collectorPersonId: collectionSession.collectorPersonId,
+        businessDate: collectionSession.businessDate,
+        status: collectionSession.status,
+      })
+      .from(collectionSession)
+      .where(
+        and(
+          eq(collectionSession.collectorPersonId, input.collectorPersonId),
+          eq(collectionSession.businessDate, input.businessDate),
+          isNull(collectionSession.deletedAt),
+        ),
+      )
+      .limit(1);
+    return row;
+  },
+
+  async collectionSessionById(
+    tx: Tx,
+    id: CollectionSessionId,
+  ): Promise<CollectionSessionRecord | undefined> {
+    const [row] = await tx
+      .select({
+        id: collectionSession.id,
+        schoolId: collectionSession.schoolId,
+        collectorPersonId: collectionSession.collectorPersonId,
+        businessDate: collectionSession.businessDate,
+        status: collectionSession.status,
+      })
+      .from(collectionSession)
+      .where(and(eq(collectionSession.id, id), isNull(collectionSession.deletedAt)))
+      .limit(1);
+    return row;
+  },
+
+  async createCollectionSession(
+    tx: Tx,
+    input: {
+      collectorPersonId: PersonId;
+      schoolId: SchoolId;
+      businessDate: LocalDate;
+      actorId: PersonId;
+    },
+  ): Promise<CollectionSessionId> {
+    const id = Ids.generate<'collectionSession'>();
+    await tx.insert(collectionSession).values({
+      id,
+      collectorPersonId: input.collectorPersonId,
+      schoolId: input.schoolId,
+      businessDate: input.businessDate,
+      createdBy: input.actorId,
+    });
+    return id;
+  },
+
+  /**
+   * "Σ cash payments in session" (§13.3) — net of any reversal also attached
+   * to it. Every row this sums is cash by construction (`recordPayment` and
+   * `reversePayment` only ever attach cash), so the sign is the only thing
+   * that needs deciding: a reversal subtracts, an ordinary payment adds.
+   */
+  async sessionCashTotal(tx: Tx, sessionId: CollectionSessionId): Promise<bigint> {
+    const [row] = await tx
+      .select({
+        total: sql<string>`coalesce(sum(
+          case when ${payment.reversesPaymentId} is null
+               then ${payment.amountMinor}
+               else -${payment.amountMinor}
+          end
+        ), 0)`,
+      })
+      .from(payment)
+      .where(and(eq(payment.collectionSessionId, sessionId), isNull(payment.deletedAt)));
+    return BigInt(row?.total ?? '0');
+  },
+
+  async closeCollectionSession(
+    tx: Tx,
+    input: {
+      sessionId: CollectionSessionId;
+      expectedMinor: bigint;
+      countedMinor: bigint;
+      varianceMinor: bigint;
+      varianceReason: string | null;
+      closedAt: Date;
+      actorId: PersonId;
+    },
+  ): Promise<void> {
+    await tx
+      .update(collectionSession)
+      .set({
+        status: 'closed',
+        closedAt: input.closedAt,
+        expectedMinor: input.expectedMinor,
+        countedMinor: input.countedMinor,
+        varianceMinor: input.varianceMinor,
+        varianceReason: input.varianceReason,
+        updatedBy: input.actorId,
+      })
+      .where(eq(collectionSession.id, input.sessionId));
+  },
+
+  async verifyCollectionSession(
+    tx: Tx,
+    input: { sessionId: CollectionSessionId; depositReference: string | null; actorId: PersonId },
+  ): Promise<void> {
+    await tx
+      .update(collectionSession)
+      .set({ status: 'verified', depositReference: input.depositReference, updatedBy: input.actorId })
+      .where(eq(collectionSession.id, input.sessionId));
   },
 };

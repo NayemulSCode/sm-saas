@@ -124,6 +124,9 @@ endpoints. It is never in a response body and cannot be read from script.
 | `GET` | [`/api/v1/students/{studentId}/outstanding`](#get-api-v1-students-studentId-outstanding) | `fee.read` |
 | `POST` | [`/api/v1/payments`](#post-api-v1-payments) | `fee.collect` |
 | `POST` | [`/api/v1/payments/{paymentId}/reverse`](#post-api-v1-payments-paymentId-reverse) | `fee.refund` |
+| `POST` | [`/api/v1/collection-sessions`](#post-api-v1-collection-sessions) | `fee.collect` |
+| `POST` | [`/api/v1/collection-sessions/{sessionId}/close`](#post-api-v1-collection-sessions-sessionId-close) | `fee.collect` |
+| `POST` | [`/api/v1/collection-sessions/{sessionId}/verify`](#post-api-v1-collection-sessions-sessionId-verify) | `fee.reconcile` |
 
 ### Operations
 
@@ -2333,6 +2336,113 @@ _Permission: `fee.refund`_
 | 409 | `ALREADY_REVERSED` | This payment has already been reversed once — reversing a reversal is a new payment, not this operation. |
 | 400 | `INVALID_COLLECTED_AT` | `collectedAt` is malformed or not a real calendar date. |
 | 403 | `BACKDATE_NOT_PERMITTED` | `collectedAt` is before today and the caller holds `fee.refund` but not `fee.backdate`. |
+
+### `POST /api/v1/collection-sessions`
+
+**Open today’s collection session**
+
+One drawer per collector per business date (`UNIQUE (tenant_id, collector_person_id, business_date)`) — opt-in, not required: a school that never opens one still records cash payments fine, just without this discipline applied. Once open, every CASH payment the caller records is attached to it automatically.
+
+_Permission: `fee.collect`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schoolId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    }
+  },
+  "required": [
+    "schoolId"
+  ]
+}
+```
+
+**201** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 409 | `SESSION_ALREADY_OPEN` | The caller already has a session open today. |
+
+### `POST /api/v1/collection-sessions/{sessionId}/close`
+
+**Close a collection session**
+
+`expected_minor` is computed from the cash payments (and any cash refunds) attached to this session — the caller only supplies what was actually counted. A non-zero variance is recorded, never silently absorbed; it requires a reason.
+
+_Permission: `fee.collect`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "countedMinor": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "varianceReason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 280
+    }
+  },
+  "required": [
+    "countedMinor"
+  ]
+}
+```
+
+**200** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `SESSION_NOT_FOUND` | No such session. |
+| 409 | `SESSION_NOT_OPEN` | Already closed or verified. |
+| 400 | `VARIANCE_REASON_REQUIRED` | `countedMinor` does not match what was expected, and no `varianceReason` was given. |
+
+### `POST /api/v1/collection-sessions/{sessionId}/verify`
+
+**Verify a closed collection session**
+
+`fee.reconcile` — deliberately separate from `fee.collect`, so the person confirming the bank deposit matches is not the same person who counted the drawer.
+
+_Permission: `fee.reconcile`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "depositReference": {
+      "type": "string",
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**200** — Success.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `SESSION_NOT_FOUND` | No such session. |
+| 409 | `SESSION_NOT_CLOSED` | The session must be closed before it can be verified. |
 
 ## Operations
 
