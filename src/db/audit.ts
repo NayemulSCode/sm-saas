@@ -124,8 +124,10 @@ export const REASON_REQUIRED: ReadonlySet<string> = new Set([
   // investigation wants to know what the person claimed to be doing.
   'role.grant_refused',
   'student.merged',
+  // A placeholder for whenever late-fee waiving (§13.7's separate
+  // `POST /late-fees/:id:waive`) ships — not built yet.
   'fee.waived',
-  'fee.refunded',
+  'payment.reversed',
   'discount.approved',
   'result.published',
   'result.revised',

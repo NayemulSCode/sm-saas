@@ -121,3 +121,11 @@ export const RecordPaymentSchema = z
     message: 'finance.error.channelReferenceRequired',
     path: ['channelRef'],
   });
+
+/** Dangerous: `fee.refund` is in `DANGEROUS_PERMISSIONS`. `collectedAt` is
+ *  optional — defaults to today; a backdated reversal still needs
+ *  `fee.backdate`, same as a backdated `POST /payments`. */
+export const ReversePaymentSchema = z.object({
+  reason: zReason,
+  collectedAt: zLocalDate.optional(),
+});
