@@ -12,17 +12,19 @@ guardian UI, API docs generated from the Zod schemas. **Phase 3b in progress**
 (`fee_head` through `payment_allocation`, plus `idempotency_key` filling a gap
 left in the original shared kernel); 0015 added the partial unique index that
 makes `invoice` itself idempotent per (student, year, period), the guard §13.6
-assumes but 0014 never actually built. Fee definition, invoice generation, and
-now payment recording and receipt issuance (§13.3, §13.4) all have real use
-cases and API routes — `POST /payments` is live, with the gapless
-per-school-per-year receipt sequence under `SELECT … FOR UPDATE`,
-`allocatePayment` finally has a caller, and `db/idempotency.ts` is the
-`idempotency_key` table's first actual use (`Idempotency-Key` replay for
-`POST /payments`; `POST /invoices:generate` deliberately does not use it yet —
-see PR #46 for why). Payment reversal (`POST /payments/:id:reverse`) and
-collection sessions are still ahead, and no finance UI exists yet. Phase 1
-produced the architecture, Phase 2 the engineering specification, Phase 3 is
-the implementation.
+assumes but 0014 never actually built. Fee definition, invoice generation, payment recording, and
+now payment reversal all have real use cases and API routes — `POST
+/payments` is live, with the gapless per-school-per-year receipt sequence
+under `SELECT … FOR UPDATE`, `allocatePayment` finally has a caller, and
+`db/idempotency.ts` is the `idempotency_key` table's first actual use
+(`Idempotency-Key` replay for `POST /payments`; `POST /invoices:generate`
+deliberately does not use it yet — see PR #46 for why). `POST
+/payments/:id:reverse` writes a NEW payment row rather than deleting the
+original (invariant 1) — the original receipt number stays permanently
+consumed, and the reversal gets its own, under whatever fiscal year it is
+actually issued in. Collection sessions are still ahead, and no finance UI
+exists yet. Phase 1 produced the architecture, Phase 2 the engineering
+specification, Phase 3 is the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
 `pnpm verify` (typecheck + lint + tests) and keep it green.

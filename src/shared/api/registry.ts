@@ -59,6 +59,7 @@ import {
   ApproveDiscountSchema,
   GenerateInvoicesSchema,
   RecordPaymentSchema,
+  ReversePaymentSchema,
 } from '../../modules/finance/application/dto';
 
 export interface QueryParam {
@@ -818,6 +819,23 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     notes: [
       'Requires an `Idempotency-Key` header. A retry with the SAME key and the same request body replays the original response — no second payment, no second receipt number. The same key with a DIFFERENT body is refused.',
+    ],
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/payments/{paymentId}/reverse',
+    tag: 'Finance',
+    summary: 'Reverse a payment',
+    description: 'Refunds are reversing rows, never deletes (invariant 1) — this writes a NEW payment with its own receipt number and `reversesPaymentId` set; the original receipt number stays permanently consumed. Reverses the payment in full; a partial refund is not supported.',
+    permission: 'fee.refund',
+    body: ReversePaymentSchema,
+    successStatus: 200,
+    returns: 'A `PaymentView` describing the reversing payment — its allocations are the original’s, negated.',
+    failures: [
+      { status: 404, code: 'PAYMENT_NOT_FOUND', when: 'No such payment.' },
+      { status: 409, code: 'ALREADY_REVERSED', when: 'This payment has already been reversed once — reversing a reversal is a new payment, not this operation.' },
+      { status: 400, code: 'INVALID_COLLECTED_AT', when: '`collectedAt` is malformed or not a real calendar date.' },
+      { status: 403, code: 'BACKDATE_NOT_PERMITTED', when: '`collectedAt` is before today and the caller holds `fee.refund` but not `fee.backdate`.' },
     ],
   },
 

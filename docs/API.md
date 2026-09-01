@@ -123,6 +123,7 @@ endpoints. It is never in a response body and cannot be read from script.
 | `POST` | [`/api/v1/invoices/generate`](#post-api-v1-invoices-generate) | `fee.structure.manage` |
 | `GET` | [`/api/v1/students/{studentId}/outstanding`](#get-api-v1-students-studentId-outstanding) | `fee.read` |
 | `POST` | [`/api/v1/payments`](#post-api-v1-payments) | `fee.collect` |
+| `POST` | [`/api/v1/payments/{paymentId}/reverse`](#post-api-v1-payments-paymentId-reverse) | `fee.refund` |
 
 ### Operations
 
@@ -2290,6 +2291,48 @@ _Permission: `fee.collect`_
 | 409 | `IDEMPOTENCY_KEY_REUSED` | The same `Idempotency-Key` was used for a materially different request. |
 
 > Requires an `Idempotency-Key` header. A retry with the SAME key and the same request body replays the original response — no second payment, no second receipt number. The same key with a DIFFERENT body is refused.
+
+### `POST /api/v1/payments/{paymentId}/reverse`
+
+**Reverse a payment**
+
+Refunds are reversing rows, never deletes (invariant 1) — this writes a NEW payment with its own receipt number and `reversesPaymentId` set; the original receipt number stays permanently consumed. Reverses the payment in full; a partial refund is not supported.
+
+_Permission: `fee.refund`_
+
+**Body**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 280
+    },
+    "collectedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "reason"
+  ]
+}
+```
+
+**200** — A `PaymentView` describing the reversing payment — its allocations are the original’s, negated.
+
+**Refusals**
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `PAYMENT_NOT_FOUND` | No such payment. |
+| 409 | `ALREADY_REVERSED` | This payment has already been reversed once — reversing a reversal is a new payment, not this operation. |
+| 400 | `INVALID_COLLECTED_AT` | `collectedAt` is malformed or not a real calendar date. |
+| 403 | `BACKDATE_NOT_PERMITTED` | `collectedAt` is before today and the caller holds `fee.refund` but not `fee.backdate`. |
 
 ## Operations
 

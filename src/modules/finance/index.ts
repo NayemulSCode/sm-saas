@@ -1,10 +1,9 @@
 /**
  * The finance module's only importable surface (ADR-0001).
  *
- * §13.1 (fee definition), §13.6 (invoice generation) and now §13.3/§13.4
- * (payment recording and receipt issuance) all have real use cases. Payment
- * reversal (§13.7's `POST /payments/:id:reverse`) and collection sessions
- * are still ahead.
+ * §13.1 (fee definition), §13.6 (invoice generation), §13.3/§13.4 (payment
+ * recording and receipt issuance) and now payment reversal all have real use
+ * cases. Collection sessions are still ahead.
  */
 
 export {
@@ -77,6 +76,12 @@ export {
 } from './application/recordPayment';
 
 export {
+  reversePayment,
+  ReversalErrors,
+  type ReversePaymentInput,
+} from './application/reversePayment';
+
+export {
   CreateFeeHeadSchema,
   CreateFeeStructureSchema,
   CreateFeeAssignmentSchema,
@@ -84,4 +89,5 @@ export {
   ApproveDiscountSchema,
   GenerateInvoicesSchema,
   RecordPaymentSchema,
+  ReversePaymentSchema,
 } from './application/dto';

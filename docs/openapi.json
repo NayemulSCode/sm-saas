@@ -5391,6 +5391,119 @@
         ]
       }
     },
+    "/api/v1/payments/{paymentId}/reverse": {
+      "post": {
+        "tags": [
+          "Finance"
+        ],
+        "summary": "Reverse a payment",
+        "description": "Refunds are reversing rows, never deletes (invariant 1) — this writes a NEW payment with its own receipt number and `reversesPaymentId` set; the original receipt number stays permanently consumed. Reverses the payment in full; a partial refund is not supported.\n\n**Permission:** `fee.refund`",
+        "operationId": "post_api_v1_payments_paymentId_reverse",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A `PaymentView` describing the reversing payment — its allocations are the original’s, negated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`INVALID_COLLECTED_AT` — `collectedAt` is malformed or not a real calendar date.\n\n`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`BACKDATE_NOT_PERMITTED` — `collectedAt` is before today and the caller holds `fee.refund` but not `fee.backdate`.\n\n`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`PAYMENT_NOT_FOUND` — No such payment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ALREADY_REVERSED` — This payment has already been reversed once — reversing a reversal is a new payment, not this operation.\n\n`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 280
+                  },
+                  "collectedAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/health/live": {
       "get": {
         "tags": [

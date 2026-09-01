@@ -132,6 +132,16 @@ export interface OutstandingLineRecord {
   feeHeadSequence: number;
 }
 
+export interface PaymentRecord {
+  id: PaymentId;
+  schoolId: SchoolId;
+  studentId: StudentId;
+  amountMinor: bigint;
+  channel: 'cash' | 'bank' | 'cheque' | 'mfs' | 'online';
+  channelRef: string | null;
+  reversedByPaymentId: PaymentId | null;
+}
+
 export const finance = {
   // ── fee heads ────────────────────────────────────────────────────────────
 
@@ -835,6 +845,12 @@ export const finance = {
       collectedBy: PersonId;
       idempotencyKey: string;
       actorId: PersonId;
+      /** Set together, or not at all — a REVERSING payment (§13.3's own
+       *  words: "refunds are reversing rows, never deletes"). The CHECK
+       *  `reverses_payment_id IS NULL OR reversal_reason IS NOT NULL` is the
+       *  same rule enforced a second time, in SQL. */
+      reversesPaymentId?: PaymentId | undefined;
+      reversalReason?: string | undefined;
     },
   ): Promise<PaymentId> {
     const id = Ids.generate<'payment'>();
@@ -851,6 +867,8 @@ export const finance = {
       recordedAt: input.recordedAt,
       collectedBy: input.collectedBy,
       idempotencyKey: input.idempotencyKey,
+      reversesPaymentId: input.reversesPaymentId ?? null,
+      reversalReason: input.reversalReason ?? null,
       createdBy: input.actorId,
     });
     return id;
@@ -917,5 +935,72 @@ export const finance = {
     await tx.update(invoice).set({ paidMinor, status, updatedBy: actorId }).where(eq(invoice.id, invoiceId));
 
     return { paidMinor, status };
+  },
+
+  // ── payment reversal (§13.3) ─────────────────────────────────────────────
+
+  async paymentById(tx: Tx, id: PaymentId): Promise<PaymentRecord | undefined> {
+    const [row] = await tx
+      .select({
+        id: payment.id,
+        schoolId: payment.schoolId,
+        studentId: payment.studentId,
+        amountMinor: payment.amountMinor,
+        channel: payment.channel,
+        channelRef: payment.channelRef,
+        reversedByPaymentId: payment.reversedByPaymentId,
+      })
+      .from(payment)
+      .where(and(eq(payment.id, id), isNull(payment.deletedAt)))
+      .limit(1);
+    return row;
+  },
+
+  async schoolFiscalYearStartMonth(tx: Tx, schoolId: SchoolId): Promise<number | undefined> {
+    const [row] = await tx
+      .select({ fiscalYearStartMonth: school.fiscalYearStartMonth })
+      .from(school)
+      .where(eq(school.id, schoolId))
+      .limit(1);
+    return row?.fiscalYearStartMonth;
+  },
+
+  /** The original payment's own allocations, joined through to each line's
+   *  invoice and fee head — everything a reversal needs to mirror them with
+   *  negated amounts, and everything the response view needs to describe
+   *  what got undone. */
+  async paymentAllocationsFor(
+    tx: Tx,
+    paymentId: PaymentId,
+  ): Promise<
+    Array<{
+      invoiceLineId: InvoiceLineId;
+      invoiceId: InvoiceId;
+      feeHeadId: FeeHeadId;
+      amountMinor: bigint;
+    }>
+  > {
+    return tx
+      .select({
+        invoiceLineId: paymentAllocation.invoiceLineId,
+        invoiceId: invoiceLine.invoiceId,
+        feeHeadId: invoiceLine.feeHeadId,
+        amountMinor: paymentAllocation.amountMinor,
+      })
+      .from(paymentAllocation)
+      .innerJoin(invoiceLine, eq(invoiceLine.id, paymentAllocation.invoiceLineId))
+      .where(and(eq(paymentAllocation.paymentId, paymentId), isNull(paymentAllocation.deletedAt)));
+  },
+
+  async markPaymentReversed(
+    tx: Tx,
+    originalPaymentId: PaymentId,
+    reversingPaymentId: PaymentId,
+    actorId: PersonId,
+  ): Promise<void> {
+    await tx
+      .update(payment)
+      .set({ reversedByPaymentId: reversingPaymentId, updatedBy: actorId })
+      .where(eq(payment.id, originalPaymentId));
   },
 };
