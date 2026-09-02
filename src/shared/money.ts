@@ -67,8 +67,16 @@ function divRoundHalfEven(numerator: bigint, denominator: bigint): bigint {
   return negative ? -result : result;
 }
 
-/** Indic grouping: 1,23,456.78 — lakh/crore, NOT thousands. */
-function groupIndic(intPart: string): string {
+/**
+ * Indic grouping: 1,23,456.78 — lakh/crore, NOT thousands.
+ *
+ * Exported (not just used internally by `format`) because `BanglaNumber`
+ * (§12.1) needs the identical grouping for a plain integer that is not
+ * money at all — a roll number, a receipt count. Two implementations of the
+ * same grouping rule is exactly the kind of drift `allocate.ts` reuses
+ * `allocateByWeights` to avoid; the same reasoning applies here.
+ */
+export function groupIndic(intPart: string): string {
   if (intPart.length <= 3) return intPart;
   const last3 = intPart.slice(-3);
   const rest = intPart.slice(0, -3);
