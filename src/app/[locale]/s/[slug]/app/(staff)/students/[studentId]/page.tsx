@@ -11,12 +11,14 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { resolveAuthContext, tokenGenerator } from '../../../../../../../../modules/identity/index';
 import { getStudent } from '../../../../../../../../modules/directory/index';
+import { listOutstanding } from '../../../../../../../../modules/finance/index';
 import type { StudentId } from '../../../../../../../../shared/ids';
 import { readSessionToken } from '../../../../../../../api/_lib/session-cookie';
 import { can, isHouseholdOnly } from '../../../../../../../../shared/auth-context';
 import { WithdrawButton } from './WithdrawButton';
 import { Guardians, type GuardianRow } from './Guardians';
 import { EditDetails, type EditableStudent } from './EditDetails';
+import { CollectPayment } from './CollectPayment';
 import { appPath } from '../../../../../../../../shared/paths';
 
 export const dynamic = 'force-dynamic';
@@ -80,6 +82,13 @@ export default async function StudentPage({
   const { student, enrolments, guardians, history } = view;
   const current = enrolments[0];
 
+  // `fee.collect` gates the section entirely rather than showing it
+  // read-only for `fee.read`-only callers: on the STAFF surface the two sets
+  // of holders are identical except Guardian, who never reaches this page
+  // (redirected above by `isHouseholdOnly`).
+  const canCollect = can(ctx.value, 'fee.collect');
+  const outstanding = canCollect ? await listOutstanding(ctx.value, student.id as StudentId) : null;
+
   return (
     <main className="mx-auto max-w-3xl p-6">
       <p className="mb-4 text-sm">
@@ -117,6 +126,20 @@ export default async function StudentPage({
           <WithdrawButton studentId={student.id} redirectTo={`${base}/dashboard`} />
         )}
       </div>
+
+      {canCollect && outstanding && (
+        <Section title="Fees" count={outstanding.ok ? outstanding.value.length : 0}>
+          {outstanding.ok ? (
+            <CollectPayment
+              studentId={student.id}
+              outstanding={outstanding.value}
+              canBackdate={can(ctx.value, 'fee.backdate')}
+            />
+          ) : (
+            <Empty>Something went wrong loading what this student owes.</Empty>
+          )}
+        </Section>
+      )}
 
       <Section title="Guardians" count={guardians.length}>
         <Guardians

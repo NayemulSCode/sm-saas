@@ -25,8 +25,16 @@ number stays permanently consumed. `POST /collection-sessions` (+
 `:id/close`, `:id/verify`) is opt-in cash-drawer discipline: once a
 collector opens one, `recordPayment` and `reversePayment` both attach every
 CASH payment to it automatically, and a closed session refuses a new one
-(`SESSION_CLOSED`) until the collector opens the next day's. No finance UI
-exists yet — that is the next piece. Phase 1 produced the architecture,
+(`SESSION_CLOSED`) until the collector opens the next day's. Finance UI has
+started: §12.4's fee collection screen (search → outstanding → amount → live
+preview → confirm → receipt → print, minus the search step for now) lives on
+the student record, `POST /payments` wired all the way through. Building it
+also seeded the shared pattern library (§12.1) with the four primitives every
+finance screen needs — `MoneyInput`, `MoneyText`, `BanglaNumber`, `DateInput`
+— all in `components/patterns/`; `PersonSearch` and `DataTable` are the two
+of the five still unbuilt, needed once a dedicated fast-entry search screen
+or a genuinely large list shows up. Fee setup (heads, structures), invoice
+generation and reversal have no UI yet. Phase 1 produced the architecture,
 Phase 2 the engineering specification, Phase 3 is the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
