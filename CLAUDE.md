@@ -33,9 +33,13 @@ also seeded the shared pattern library (§12.1) with the four primitives every
 finance screen needs — `MoneyInput`, `MoneyText`, `BanglaNumber`, `DateInput`
 — all in `components/patterns/`; `PersonSearch` and `DataTable` are the two
 of the five still unbuilt, needed once a dedicated fast-entry search screen
-or a genuinely large list shows up. Fee setup (heads, structures), invoice
-generation and reversal have no UI yet. Phase 1 produced the architecture,
-Phase 2 the engineering specification, Phase 3 is the implementation.
+or a genuinely large list shows up. Fee setup is live too — `/app/fees`
+lists fee heads and this year's fee structures and lets `fee.structure.manage`
+add both; a server component for the lists, a small client island
+(`FeeSetupForms.tsx`) for the two "add" forms, same split `structure/page.tsx`
+already uses. Invoice generation and payment reversal still have no UI.
+Phase 1 produced the architecture, Phase 2 the engineering specification,
+Phase 3 is the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
 `pnpm verify` (typecheck + lint + tests) and keep it green.
