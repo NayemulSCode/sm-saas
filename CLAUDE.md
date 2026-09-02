@@ -42,7 +42,18 @@ trigger form (year, period label, issued-on, due date) gated on the same
 `fee.structure.manage` `generateInvoices` itself authorizes against, showing
 the run's own summary (students checked, invoices created vs. reused, lines
 added) since no `listInvoices` use case exists yet to show a history instead.
-Payment reversal still has no UI. Phase 1 produced the architecture, Phase 2
+Payment reversal has UI now too, on the student record — a new
+`listPaymentsForStudent` (`GET /students/:id/payments`) finally gives it
+something to reverse from, since neither `recordPayment` nor `reversePayment`
+ever returned more than the one payment each just acted on; the payment
+history section renders newest first (`recordedAt DESC, id DESC` — the ULID
+tiebreak matters, two payments can share a `recordedAt`), each row's own
+`reversesPaymentId`/`reversedByPaymentId` telling the whole story with no
+separate history concept, including a reversal of a reversal (a real,
+intentional path — undoing an undo is "a NEW payment", per `reversePayment`'s
+own comment, not a different operation). All three of fee setup, invoice
+generation and payment reversal — everything named for this finance UI pass —
+now have screens. Phase 1 produced the architecture, Phase 2
 the engineering specification,
 Phase 3 is the implementation.
 

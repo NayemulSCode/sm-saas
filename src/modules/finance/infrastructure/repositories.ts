@@ -972,6 +972,47 @@ export const finance = {
     return row;
   },
 
+  /** Newest first — the order a person scanning for "the one I just took"
+   *  or "the one from last week" actually wants. `id DESC` breaks ties on
+   *  `recordedAt`, which two payments genuinely can share (a fixed test
+   *  clock; two rows recorded in the same instant in production) — the
+   *  ULID's own ordering is exactly the "strict, not merely millisecond
+   *  granular" guarantee `shared/ids.ts` built the monotonic factory for. */
+  async paymentsForStudent(
+    tx: Tx,
+    studentId: StudentId,
+  ): Promise<
+    Array<{
+      id: PaymentId;
+      receiptNo: bigint;
+      amountMinor: bigint;
+      channel: 'cash' | 'bank' | 'cheque' | 'mfs' | 'online';
+      channelRef: string | null;
+      collectedAt: Date;
+      recordedAt: Date;
+      reversesPaymentId: PaymentId | null;
+      reversedByPaymentId: PaymentId | null;
+      reversalReason: string | null;
+    }>
+  > {
+    return tx
+      .select({
+        id: payment.id,
+        receiptNo: payment.receiptNo,
+        amountMinor: payment.amountMinor,
+        channel: payment.channel,
+        channelRef: payment.channelRef,
+        collectedAt: payment.collectedAt,
+        recordedAt: payment.recordedAt,
+        reversesPaymentId: payment.reversesPaymentId,
+        reversedByPaymentId: payment.reversedByPaymentId,
+        reversalReason: payment.reversalReason,
+      })
+      .from(payment)
+      .where(and(eq(payment.studentId, studentId), isNull(payment.deletedAt)))
+      .orderBy(desc(payment.recordedAt), desc(payment.id));
+  },
+
   async schoolFiscalYearStartMonth(tx: Tx, schoolId: SchoolId): Promise<number | undefined> {
     const [row] = await tx
       .select({ fiscalYearStartMonth: school.fiscalYearStartMonth })

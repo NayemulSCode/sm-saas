@@ -67,6 +67,8 @@ export {
 
 export { listOutstanding, type OutstandingLineView } from './application/listOutstanding';
 
+export { listPaymentsForStudent, type PaymentListRow } from './application/listPayments';
+
 export {
   recordPayment,
   PaymentErrors,

@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { resolveAuthContext, tokenGenerator } from '../../../../../../../../modules/identity/index';
 import { getStudent } from '../../../../../../../../modules/directory/index';
-import { listOutstanding } from '../../../../../../../../modules/finance/index';
+import { listOutstanding, listPaymentsForStudent } from '../../../../../../../../modules/finance/index';
 import type { StudentId } from '../../../../../../../../shared/ids';
 import { readSessionToken } from '../../../../../../../api/_lib/session-cookie';
 import { can, isHouseholdOnly } from '../../../../../../../../shared/auth-context';
@@ -19,6 +19,7 @@ import { WithdrawButton } from './WithdrawButton';
 import { Guardians, type GuardianRow } from './Guardians';
 import { EditDetails, type EditableStudent } from './EditDetails';
 import { CollectPayment } from './CollectPayment';
+import { PaymentHistory } from './PaymentHistory';
 import { appPath } from '../../../../../../../../shared/paths';
 
 export const dynamic = 'force-dynamic';
@@ -89,6 +90,11 @@ export default async function StudentPage({
   const canCollect = can(ctx.value, 'fee.collect');
   const outstanding = canCollect ? await listOutstanding(ctx.value, student.id as StudentId) : null;
 
+  const canViewPayments = can(ctx.value, 'fee.read');
+  const payments = canViewPayments
+    ? await listPaymentsForStudent(ctx.value, student.id as StudentId)
+    : null;
+
   return (
     <main className="mx-auto max-w-3xl p-6">
       <p className="mb-4 text-sm">
@@ -137,6 +143,20 @@ export default async function StudentPage({
             />
           ) : (
             <Empty>Something went wrong loading what this student owes.</Empty>
+          )}
+        </Section>
+      )}
+
+      {canViewPayments && payments && (
+        <Section title="Payments" count={payments.ok ? payments.value.length : 0}>
+          {payments.ok ? (
+            <PaymentHistory
+              payments={payments.value}
+              canReverse={can(ctx.value, 'fee.refund')}
+              canBackdate={can(ctx.value, 'fee.backdate')}
+            />
+          ) : (
+            <Empty>Something went wrong loading this student&apos;s payments.</Empty>
           )}
         </Section>
       )}
