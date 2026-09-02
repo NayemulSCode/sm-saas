@@ -122,6 +122,7 @@ endpoints. It is never in a response body and cannot be read from script.
 | `POST` | [`/api/v1/discounts/{discountId}/approve`](#post-api-v1-discounts-discountId-approve) | `fee.waive` |
 | `POST` | [`/api/v1/invoices/generate`](#post-api-v1-invoices-generate) | `fee.structure.manage` |
 | `GET` | [`/api/v1/students/{studentId}/outstanding`](#get-api-v1-students-studentId-outstanding) | `fee.read` |
+| `GET` | [`/api/v1/students/{studentId}/payments`](#get-api-v1-students-studentId-payments) | `fee.read` |
 | `POST` | [`/api/v1/payments`](#post-api-v1-payments) | `fee.collect` |
 | `POST` | [`/api/v1/payments/{paymentId}/reverse`](#post-api-v1-payments-paymentId-reverse) | `fee.refund` |
 | `POST` | [`/api/v1/collection-sessions`](#post-api-v1-collection-sessions) | `fee.collect` |
@@ -2165,6 +2166,16 @@ _Permission: `fee.structure.manage`_
 **What a student currently owes**
 
 Drives the collection screen — the same set, in the same `oldest_first` order, `POST /payments` allocates an `auto` payment against.
+
+_Permission: `fee.read`_
+
+**200** — Success.
+
+### `GET /api/v1/students/{studentId}/payments`
+
+**A student's payment history**
+
+Drives the reversal screen — newest first. Each row carries `reversesPaymentId`/`reversedByPaymentId` so a reversal and the payment it undid (or the payment that undid it) can be cross-referenced without a second request.
 
 _Permission: `fee.read`_
 

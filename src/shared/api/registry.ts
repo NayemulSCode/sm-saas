@@ -800,6 +800,15 @@ export const ENDPOINTS: Endpoint[] = [
     successStatus: 200,
   },
   {
+    method: 'GET',
+    path: '/api/v1/students/{studentId}/payments',
+    tag: 'Finance',
+    summary: "A student's payment history",
+    description: 'Drives the reversal screen — newest first. Each row carries `reversesPaymentId`/`reversedByPaymentId` so a reversal and the payment it undid (or the payment that undid it) can be cross-referenced without a second request.',
+    permission: 'fee.read',
+    successStatus: 200,
+  },
+  {
     method: 'POST',
     path: '/api/v1/payments',
     tag: 'Finance',

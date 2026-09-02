@@ -5201,6 +5201,84 @@
         ]
       }
     },
+    "/api/v1/students/{studentId}/payments": {
+      "get": {
+        "tags": [
+          "Finance"
+        ],
+        "summary": "A student's payment history",
+        "description": "Drives the reversal screen — newest first. Each row carries `reversesPaymentId`/`reversedByPaymentId` so a reversal and the payment it undid (or the payment that undid it) can be cross-referenced without a second request.\n\n**Permission:** `fee.read`",
+        "operationId": "get_api_v1_students_studentId_payments",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — The body does not match the schema. `details` names the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`SESSION_INVALID` — The session cookie is unknown, expired or revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FORBIDDEN` — No session cookie, or the session lacks the permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TENANT_SUSPENDED` — The school is read-only; reads succeed, writes do not.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/payments": {
       "post": {
         "tags": [

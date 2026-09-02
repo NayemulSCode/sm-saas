@@ -21,6 +21,7 @@ import {
   recordPayment,
   reversePayment,
   ReversalErrors,
+  listPaymentsForStudent,
 } from '../index';
 import { requestOtp, verifyOtp, resolveAuthContext } from '../../identity/index';
 import { codeHasher, randomSource, tokenGenerator } from '../../identity/infrastructure/crypto';
@@ -362,4 +363,34 @@ describe('reversePayment', () => {
     expect(r.value.receiptNo).toBe(3);
     expect(r.value.remainingDueMinor).toBe('0');
   }, 60_000);
+
+  it('lists the three payments newest first, each linked to the other side of its reversal', async () => {
+    const r = await listPaymentsForStudent(principal, studentId);
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+
+    expect(r.value.map((p) => p.receiptNo)).toEqual([3, 2, 1]);
+
+    const byReceipt = new Map(r.value.map((p) => [p.receiptNo, p]));
+    const original = byReceipt.get(1)!;
+    const reversal = byReceipt.get(2)!;
+    const fresh = byReceipt.get(3)!;
+
+    expect(original.reversesPaymentId).toBeNull();
+    expect(original.reversedByPaymentId).toBe(reversal.id);
+
+    expect(reversal.reversesPaymentId).toBe(original.id);
+    expect(reversal.reversedByPaymentId).toBeNull();
+
+    expect(fresh.reversesPaymentId).toBeNull();
+    expect(fresh.reversedByPaymentId).toBeNull();
+  }, 30_000);
+
+  it('refuses to list payments for a caller without fee.read', async () => {
+    const noFinance: AuthContext = {
+      ...principal,
+      permissions: new Set<Permission>(['student.read']),
+    };
+    await expect(listPaymentsForStudent(noFinance, studentId)).rejects.toThrow(/fee\.read/);
+  }, 30_000);
 });
