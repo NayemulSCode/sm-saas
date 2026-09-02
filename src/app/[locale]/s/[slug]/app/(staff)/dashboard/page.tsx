@@ -184,6 +184,11 @@ export default async function DashboardPage({
             Fees
           </Link>
         )}
+        {can(ctx.value, 'fee.structure.manage') && (
+          <Link href={`${base}/invoices`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+            Invoices
+          </Link>
+        )}
       </nav>
 
       <header className="mb-6">

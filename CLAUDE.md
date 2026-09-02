@@ -37,8 +37,13 @@ or a genuinely large list shows up. Fee setup is live too — `/app/fees`
 lists fee heads and this year's fee structures and lets `fee.structure.manage`
 add both; a server component for the lists, a small client island
 (`FeeSetupForms.tsx`) for the two "add" forms, same split `structure/page.tsx`
-already uses. Invoice generation and payment reversal still have no UI.
-Phase 1 produced the architecture, Phase 2 the engineering specification,
+already uses. Invoice generation has UI now too — `/app/invoices` is a single
+trigger form (year, period label, issued-on, due date) gated on the same
+`fee.structure.manage` `generateInvoices` itself authorizes against, showing
+the run's own summary (students checked, invoices created vs. reused, lines
+added) since no `listInvoices` use case exists yet to show a history instead.
+Payment reversal still has no UI. Phase 1 produced the architecture, Phase 2
+the engineering specification,
 Phase 3 is the implementation.
 
 Build on the scaffold; do not re-scaffold. Before adding anything, run
